@@ -6,24 +6,14 @@
       left-arrow
       @click-left="router.back()"
       class="create-nav"
-    >
-      <template #right>
-        <span
-          class="submit-btn"
-          :class="{ active: isFormValid }"
-          @click="handleSubmit"
-        >
-          提交
-        </span>
-      </template>
-    </van-nav-bar>
+    />
 
     <div class="create-content">
       <!-- 地图选点区域 -->
       <div class="map-section">
         <MapView
           :center="selectedPosition"
-          :zoom="15"
+          :zoom="16"
           :draggable-marker="true"
           @drag-end="onDragEnd"
         />
@@ -35,14 +25,33 @@
 
       <!-- 表单区域 -->
       <div class="form-section">
-        <!-- 地点名称 -->
-        <van-field
-          v-model="form.locationName"
-          label="地点名称"
-          placeholder="给这个地点取个名字吧"
-          :border="false"
-          class="form-field"
-        />
+        <!-- 地点名称 - 支持自动获取 -->
+        <div class="form-item location-name-item">
+          <label class="form-label">地点名称</label>
+          <van-field
+            v-model="form.locationName"
+            placeholder="给这个地点取个名字吧"
+            :border="false"
+            class="form-field"
+            @focus="onLocationNameFocus"
+          />
+          <!-- 地标建议列表 -->
+          <div v-if="geoSuggestions.length > 0 && showSuggestions" class="suggestions-list">
+            <div
+              v-for="(sug, idx) in geoSuggestions"
+              :key="idx"
+              class="suggestion-item"
+              @click="selectSuggestion(sug)"
+            >
+              <span class="sug-icon">📍</span>
+              <span class="sug-name">{{ sug.shortName }}</span>
+              <span class="sug-type">{{ sug.type }}</span>
+            </div>
+          </div>
+          <div v-if="geoLoading" class="suggestions-loading">
+            <span class="loading-icon">⟳</span> 获取附近地标...
+          </div>
+        </div>
 
         <!-- 图片上传 -->
         <div class="form-item">
@@ -92,6 +101,15 @@
           :border="false"
           class="form-field"
         />
+
+        <!-- 底部醒目提交按钮 -->
+        <button
+          class="submit-button"
+          :class="{ active: isFormValid, disabled: !isFormValid }"
+          @click="handleSubmit"
+        >
+          提交打卡
+        </button>
       </div>
     </div>
 
@@ -104,8 +122,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast } from 'vant'
 import type { GeoPosition, MarkFormData } from '@/types'
 import MapView from '@/components/MapView.vue'
@@ -114,21 +132,33 @@ import CharacterPicker from '@/components/CharacterPicker.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useGeolocation } from '@/composables/useGeolocation'
+import { useReverseGeocode, type GeoNameResult } from '@/composables/useReverseGeocode'
 
 const router = useRouter()
+const route = useRoute()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
-const { position, loading: geoLoading, locate } = useGeolocation()
+const { position, loading: geoPosLoading, locate } = useGeolocation()
+const { suggestions: geoSuggestions, loading: geoNameLoading, reverseGeocode } = useReverseGeocode()
+
+// 定位加载状态（位置获取或地标名称获取）
+const geoLoading = computed(() => geoPosLoading.value || geoNameLoading.value)
 
 const showCharacterPicker = ref(false)
 const tagsInput = ref('')
+const showSuggestions = ref(true)
 
-const selectedPosition = ref<GeoPosition>({ ...position.value })
+// 从路由参数获取地图中心坐标（由首页 FumoFab 传入）
+const routeCenter: GeoPosition = route.query.lat && route.query.lng
+  ? { lat: parseFloat(route.query.lat as string), lng: parseFloat(route.query.lng as string) }
+  : { ...position.value }
+
+const selectedPosition = ref<GeoPosition>({ ...routeCenter })
 
 const form = ref<MarkFormData>({
   characterIds: [],
-  lat: position.value.lat,
-  lng: position.value.lng,
+  lat: routeCenter.lat,
+  lng: routeCenter.lng,
   locationName: '',
   images: [],
   description: '',
@@ -143,6 +173,8 @@ function onDragEnd(pos: GeoPosition) {
   form.value.lat = pos.lat
   form.value.lng = pos.lng
   selectedPosition.value = pos
+  // 拖拽后自动获取附近地标
+  fetchLocationName(pos)
 }
 
 async function useCurrentLocation() {
@@ -150,6 +182,24 @@ async function useCurrentLocation() {
   form.value.lat = pos.lat
   form.value.lng = pos.lng
   selectedPosition.value = { ...pos }
+  fetchLocationName(pos)
+}
+
+function onLocationNameFocus() {
+  showSuggestions.value = true
+}
+
+async function fetchLocationName(pos: GeoPosition) {
+  const results = await reverseGeocode(pos)
+  if (results.length > 0 && !form.value.locationName.trim()) {
+    form.value.locationName = results[0].shortName
+  }
+  showSuggestions.value = true
+}
+
+function selectSuggestion(sug: GeoNameResult) {
+  form.value.locationName = sug.shortName
+  showSuggestions.value = false
 }
 
 function getCharAvatar(id: string): string {
@@ -184,11 +234,9 @@ function handleSubmit() {
   }
 }
 
-// 初始定位
-locate().then((pos) => {
-  selectedPosition.value = { ...pos }
-  form.value.lat = pos.lat
-  form.value.lng = pos.lng
+// 初始化：使用路由传入的坐标，并获取附近地标
+onMounted(() => {
+  fetchLocationName(routeCenter)
 })
 </script>
 
@@ -205,17 +253,6 @@ locate().then((pos) => {
 
 .create-nav {
   flex-shrink: 0;
-
-  .submit-btn {
-    font-size: $font-size-base;
-    color: $text-tertiary;
-    cursor: pointer;
-
-    &.active {
-      color: $color-primary;
-      font-weight: 600;
-    }
-  }
 }
 
 .create-content {
@@ -283,6 +320,78 @@ locate().then((pos) => {
   }
 }
 
+// 地点名称建议列表
+.location-name-item {
+  position: relative;
+}
+
+.suggestions-list {
+  background: $bg-card;
+  border-radius: $radius-md;
+  box-shadow: $shadow-md;
+  margin-top: $spacing-xs;
+  overflow: hidden;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+
+  .suggestion-item {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    padding: $spacing-md;
+    cursor: pointer;
+    transition: background $transition-fast;
+    border-bottom: 1px solid $divider-color;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:active {
+      background: $border-color-light;
+    }
+
+    .sug-icon {
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .sug-name {
+      flex: 1;
+      font-size: $font-size-sm;
+      color: $text-primary;
+    }
+
+    .sug-type {
+      font-size: $font-size-xs;
+      color: $text-tertiary;
+      padding: 2px 8px;
+      border-radius: $radius-full;
+      background: $border-color-light;
+    }
+  }
+}
+
+.suggestions-loading {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+  padding: $spacing-sm $spacing-md;
+  font-size: $font-size-xs;
+  color: $text-tertiary;
+
+  .loading-icon {
+    animation: spin 1s linear infinite;
+    display: inline-block;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .character-select {
   display: flex;
   align-items: center;
@@ -333,6 +442,36 @@ locate().then((pos) => {
     color: $text-tertiary;
     flex-shrink: 0;
     margin-left: $spacing-sm;
+  }
+}
+
+// 底部醒目提交按钮
+.submit-button {
+  width: 100%;
+  height: 48px;
+  border: none;
+  border-radius: $radius-xl;
+  font-size: $font-size-lg;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all $transition-normal;
+  margin-top: $spacing-lg;
+
+  &.disabled {
+    background: $border-color-light;
+    color: $text-tertiary;
+    cursor: not-allowed;
+  }
+
+  &.active {
+    background: linear-gradient(135deg, $color-pink, $color-primary);
+    color: white;
+    box-shadow: $shadow-md;
+
+    &:active {
+      transform: scale(0.97);
+      box-shadow: $shadow-sm;
+    }
   }
 }
 </style>

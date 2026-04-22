@@ -1,8 +1,8 @@
 import { ref } from 'vue'
 import type { GeoPosition } from '@/types'
 
-// 默认位置：东京（fumo 起源地）
-const DEFAULT_POSITION: GeoPosition = { lat: 35.6762, lng: 139.6503 }
+// 默认位置：深圳宝安区（方便国内测试）
+const DEFAULT_POSITION: GeoPosition = { lat: 22.5431, lng: 113.9348 }
 
 export function useGeolocation() {
   const position = ref<GeoPosition>(DEFAULT_POSITION)
@@ -55,8 +55,8 @@ export function useGeolocation() {
         },
         {
           enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000,
+          timeout: 15000,
+          maximumAge: 5000,
         }
       )
     })
@@ -68,5 +68,6 @@ export function useGeolocation() {
     error,
     isDefault,
     locate,
+    DEFAULT_POSITION,
   }
 }

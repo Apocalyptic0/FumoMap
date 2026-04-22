@@ -3,22 +3,32 @@ import L from 'leaflet'
 import type { GeoPosition, Mark } from '@/types'
 import type { Character } from '@/types'
 
+/** 标记样式接口，支持后续个性化扩展 */
+export interface MarkerStyle {
+  type: 'pin' | 'circle' | 'custom'
+  color?: string
+  size?: number
+  customHtml?: string
+}
+
 interface UseMapOptions {
   container: Ref<HTMLElement | null>
   center?: GeoPosition
   zoom?: number
   draggableMarker?: boolean // 是否启用可拖拽的选点标记
   onDragEnd?: (pos: GeoPosition) => void
+  showLocationMarker?: boolean // 是否显示当前位置蓝点标记
 }
 
 export function useMap(options: UseMapOptions) {
   const map = ref<L.Map | null>(null)
   const markers = ref<Map<string, L.Marker>>(new Map())
   const dragMarker = ref<L.Marker | null>(null)
+  const locationMarker = ref<L.Marker | null>(null) // 当前位置蓝点标记
 
-  // 默认中心：东京（fumo 起源地）
-  const defaultCenter: GeoPosition = { lat: 35.6762, lng: 139.6503 }
-  const defaultZoom = 13
+  // 默认中心：深圳（方便国内测试）
+  const defaultCenter: GeoPosition = { lat: 22.5431, lng: 113.9348 }
+  const defaultZoom = 16
 
   /**
    * 初始化地图
@@ -77,6 +87,11 @@ export function useMap(options: UseMapOptions) {
     if (options.draggableMarker) {
       addDragMarker(center)
     }
+
+    // 如果需要显示当前位置标记
+    if (options.showLocationMarker) {
+      addLocationMarker(center)
+    }
   }
 
   /**
@@ -127,21 +142,88 @@ export function useMap(options: UseMapOptions) {
   }
 
   /**
-   * 添加打卡标记到地图
+   * 添加当前位置蓝点标记（带脉冲动画）
+   */
+  function addLocationMarker(pos: GeoPosition) {
+    if (!map.value) return
+
+    removeLocationMarker()
+
+    const icon = L.divIcon({
+      className: 'location-marker',
+      html: `<div class="location-dot">
+        <div class="location-dot-pulse"></div>
+        <div class="location-dot-center"></div>
+      </div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    })
+
+    locationMarker.value = L.marker([pos.lat, pos.lng], {
+      icon,
+      interactive: false,
+      zIndexOffset: 1000,
+    }).addTo(map.value)
+  }
+
+  /**
+   * 更新当前位置标记
+   */
+  function updateLocationMarker(pos: GeoPosition) {
+    if (locationMarker.value) {
+      locationMarker.value.setLatLng([pos.lat, pos.lng])
+    } else {
+      addLocationMarker(pos)
+    }
+  }
+
+  /**
+   * 移除当前位置标记
+   */
+  function removeLocationMarker() {
+    if (locationMarker.value && map.value) {
+      map.value.removeLayer(locationMarker.value)
+      locationMarker.value = null
+    }
+  }
+
+  /**
+   * 添加打卡标记到地图（Pin 造型）
    */
   function addMarkMarker(
     mark: Mark,
     character: Character | undefined,
-    onClick?: (mark: Mark) => void
+    onClick?: (mark: Mark) => void,
+    style?: MarkerStyle
   ) {
     if (!map.value || markers.value.has(mark.id)) return
 
+    const markerStyle = style || { type: 'pin' as const }
     const avatarUrl = character?.avatarUrl || ''
+    const markerSize = markerStyle.size || 40
+    const pinColor = markerStyle.color || '#D4CAF0'
+    const pinHeight = markerSize + 16 // Pin 尖角额外高度
+
+    let iconHtml: string
+
+    if (markerStyle.type === 'custom' && markerStyle.customHtml) {
+      iconHtml = markerStyle.customHtml
+    } else {
+      // Pin 造型：圆形头像 + 底部尖角
+      const innerSize = markerSize - 8
+      iconHtml = `<div class="fumo-pin-marker" style="--pin-color: ${pinColor}; --pin-size: ${markerSize}px;">
+        <div class="pin-head">
+          <img src="${avatarUrl}" class="pin-avatar" alt="${character?.name || ''}" style="width:${innerSize}px;height:${innerSize}px;" />
+        </div>
+        <div class="pin-tip"></div>
+      </div>`
+    }
+
     const icon = L.divIcon({
       className: 'fumo-marker',
-      html: `<img src="${avatarUrl}" class="marker-avatar" alt="${character?.name || ''}" />`,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      html: iconHtml,
+      iconSize: [markerSize, pinHeight],
+      iconAnchor: [markerSize / 2, pinHeight],
     })
 
     const marker = L.marker([mark.lat, mark.lng], { icon }).addTo(map.value)
@@ -191,6 +273,7 @@ export function useMap(options: UseMapOptions) {
     }
     markers.value.clear()
     dragMarker.value = null
+    locationMarker.value = null
   }
 
   /**
@@ -216,6 +299,8 @@ export function useMap(options: UseMapOptions) {
     removeMarkMarker,
     clearMarkers,
     updateDragMarkerPosition,
+    updateLocationMarker,
+    removeLocationMarker,
     invalidateSize,
     initMap,
     destroyMap,

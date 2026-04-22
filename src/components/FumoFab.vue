@@ -5,17 +5,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, inject, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import type { GeoPosition } from '@/types'
 
 const router = useRouter()
 const pulse = ref(true)
+
+// 从父组件注入地图引用，获取当前地图中心
+const mapCenter = inject<Ref<GeoPosition>>('mapCenter', ref({ lat: 22.5431, lng: 113.9348 }))
 
 let timer: ReturnType<typeof setTimeout> | null = null
 
 function handleClick() {
   pulse.value = false
-  router.push('/create')
+  // 传递当前地图中心坐标到创建页
+  const center = mapCenter.value
+  router.push({
+    path: '/create',
+    query: {
+      lat: center.lat.toString(),
+      lng: center.lng.toString(),
+    },
+  })
 }
 
 onMounted(() => {

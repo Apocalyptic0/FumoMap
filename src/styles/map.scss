@@ -17,29 +17,108 @@
   }
 }
 
-// --- 自定义标记样式 ---
+// --- Pin 造型打卡标记 ---
 .fumo-marker {
   background: none !important;
   border: none !important;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 
-  .marker-avatar {
-    width: $marker-size;
-    height: $marker-size;
-    border-radius: $radius-full;
-    border: $marker-border;
-    box-shadow: $marker-shadow;
-    object-fit: cover;
-    transition: all $transition-normal;
+  .fumo-pin-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.25));
+    transition: transform $transition-normal;
     cursor: pointer;
 
     &:hover {
-      width: $marker-size-hover;
-      height: $marker-size-hover;
-      box-shadow: 0 4px 16px rgba(184, 169, 232, 0.5);
+      transform: scale(1.15);
     }
+
+    .pin-head {
+      width: var(--pin-size, #{$marker-size});
+      height: var(--pin-size, #{$marker-size});
+      border-radius: 50%;
+      border: 3px solid #fff;
+      background: var(--pin-color, #{$color-primary-light});
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+      .pin-avatar {
+        border-radius: 50%;
+        object-fit: cover;
+      }
+    }
+
+    .pin-tip {
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 14px solid #fff;
+      margin-top: -2px;
+
+      &::after {
+        content: '';
+        display: block;
+        width: 0;
+        height: 0;
+        border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-top: 10px solid var(--pin-color, #{$color-primary-light});
+        margin: -11px auto 0;
+      }
+    }
+  }
+}
+
+// --- 当前位置蓝点标记 ---
+.location-marker {
+  background: none !important;
+  border: none !important;
+
+  .location-dot {
+    position: relative;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .location-dot-pulse {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: rgba($color-blue, 0.3);
+      animation: locationPulse 2s ease-out infinite;
+    }
+
+    .location-dot-center {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: $color-blue;
+      border: 2px solid #fff;
+      box-shadow: 0 0 6px rgba($color-blue, 0.5);
+      z-index: 1;
+    }
+  }
+}
+
+@keyframes locationPulse {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
   }
 }
 

@@ -14,33 +14,40 @@ const props = withDefaults(
     marks?: Mark[]
     getCharacter?: (id: string) => Character | undefined
     draggableMarker?: boolean
+    showLocationMarker?: boolean
   }>(),
   {
-    zoom: 13,
+    zoom: 16,
     marks: () => [],
     draggableMarker: false,
+    showLocationMarker: false,
   }
 )
 
 const emit = defineEmits<{
   markerClick: [mark: Mark]
   dragEnd: [pos: GeoPosition]
+  mapMove: [center: GeoPosition]
 }>()
 
 const mapEl = ref<HTMLElement | null>(null)
 
 const {
+  map,
   flyTo,
   setCenter,
   addMarkMarker,
   clearMarkers,
   updateDragMarkerPosition,
+  updateLocationMarker,
+  removeLocationMarker,
   invalidateSize,
 } = useMap({
   container: mapEl,
   center: props.center,
   zoom: props.zoom,
   draggableMarker: props.draggableMarker,
+  showLocationMarker: props.showLocationMarker,
   onDragEnd: (pos) => emit('dragEnd', pos),
 })
 
@@ -58,14 +65,17 @@ watch(
   { deep: true }
 )
 
-// 监听中心位置变化
+// 监听中心位置变化 - 只平移不重置缩放
 watch(
   () => props.center,
   (newCenter) => {
     if (newCenter) {
-      setCenter(newCenter)
+      flyTo(newCenter)
       if (props.draggableMarker) {
         updateDragMarkerPosition(newCenter)
+      }
+      if (props.showLocationMarker) {
+        updateLocationMarker(newCenter)
       }
     }
   }
@@ -80,12 +90,32 @@ onMounted(() => {
       addMarkMarker(mark, character, (m) => emit('markerClick', m))
     })
   }
+
+  // 监听地图移动事件，向父组件报告当前中心
+  if (map.value) {
+    map.value.on('moveend', () => {
+      if (map.value) {
+        const center = map.value.getCenter()
+        emit('mapMove', { lat: center.lat, lng: center.lng })
+      }
+    })
+  }
 })
+
+function getCenter(): GeoPosition {
+  if (map.value) {
+    const center = map.value.getCenter()
+    return { lat: center.lat, lng: center.lng }
+  }
+  return props.center || { lat: 22.5431, lng: 113.9348 }
+}
 
 defineExpose({
   flyTo,
   setCenter,
   invalidateSize,
+  updateLocationMarker,
+  getCenter,
 })
 </script>
 

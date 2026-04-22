@@ -6,7 +6,9 @@
       :center="position"
       :marks="markStore.marks"
       :get-character="characterStore.getCharacterById"
+      :show-location-marker="true"
       @marker-click="onMarkerClick"
+      @map-move="onMapMove"
     />
 
     <!-- 顶部搜索栏 -->
@@ -44,8 +46,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import type { Mark } from '@/types'
+import { ref, onMounted, provide } from 'vue'
+import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
 import MarkerPopup from '@/components/MarkerPopup.vue'
 import FumoFab from '@/components/FumoFab.vue'
@@ -60,8 +62,16 @@ const { position, loading: geoLoading, error: geoError, locate } = useGeolocatio
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const selectedMark = ref<Mark | null>(null)
 
+// 提供地图中心坐标给子组件（FumoFab 使用）
+const mapCenter = ref<GeoPosition>({ lat: 22.5431, lng: 113.9348 })
+provide('mapCenter', mapCenter)
+
 function onMarkerClick(mark: Mark) {
   selectedMark.value = selectedMark.value?.id === mark.id ? null : mark
+}
+
+function onMapMove(center: GeoPosition) {
+  mapCenter.value = center
 }
 
 async function handleLocate() {
