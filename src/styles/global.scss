@@ -206,27 +206,3 @@ img {
   background: none !important;
   border: none !important;
 }
-
-// =============================
-// Vant 图片预览关闭按钮增强
-// =============================
-.van-image-preview {
-  .van-image-preview__close-icon {
-    font-size: 28px !important;
-    color: #fff !important;
-    top: 16px !important;
-    right: 16px !important;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 50%;
-    z-index: 10;
-
-    &:hover {
-      background: rgba(0, 0, 0, 0.7);
-    }
-  }
-}

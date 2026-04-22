@@ -3,7 +3,7 @@
     <!-- 地图 -->
     <MapView
       ref="mapViewRef"
-      :center="position"
+      :center="displayCenter"
       :marks="markStore.marks"
       :get-character="characterStore.getCharacterById"
       :show-location-marker="true"
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, provide, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
@@ -64,6 +64,9 @@ const { position, loading: geoLoading, error: geoError, locate } = useGeolocatio
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const selectedMark = ref<Mark | null>(null)
 
+// 地图中心：独立于定位坐标，避免 locate() 完成后自动飞回
+const displayCenter = ref<GeoPosition>({ lat: 22.5431, lng: 113.9348 })
+
 // 提供地图中心坐标给子组件（FumoFab 使用）
 const mapCenter = ref<GeoPosition>({ lat: 22.5431, lng: 113.9348 })
 provide('mapCenter', mapCenter)
@@ -78,23 +81,26 @@ function onMapMove(center: GeoPosition) {
 
 async function handleLocate() {
   const pos = await locate()
+  displayCenter.value = pos
   mapViewRef.value?.flyTo(pos)
 }
 
+// 当 position 更新时（定位成功），更新蓝点但不移动地图
+watch(position, (newPos) => {
+  mapViewRef.value?.updateLocationMarker(newPos)
+})
+
 onMounted(async () => {
-  // 检查是否从详情页带了坐标参数回来
   const queryLat = Number(route.query.lat)
   const queryLng = Number(route.query.lng)
   if (queryLat && queryLng) {
-    // 直接定位到标记坐标（不改变蓝点位置，不做飞行动画）
-    // 延迟一帧确保地图已初始化
-    setTimeout(() => {
-      mapViewRef.value?.setCenter({ lat: queryLat, lng: queryLng })
-    }, 50)
-    // 同时静默获取当前位置用于蓝点
+    // 从详情页返回：地图直接定位到标记坐标，不做动画
+    displayCenter.value = { lat: queryLat, lng: queryLng }
+    // 静默获取当前位置用于蓝点（不影响地图中心）
     locate()
   } else {
-    await locate()
+    const pos = await locate()
+    displayCenter.value = pos
   }
 })
 </script>

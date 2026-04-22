@@ -152,6 +152,51 @@
         <span class="action-label">收藏</span>
       </button>
     </div>
+
+    <!-- 自定义全屏图片预览 -->
+    <teleport to="body">
+      <transition name="fade">
+        <div v-if="previewVisible && mark" class="preview-overlay" @click="onPreviewOverlayClick">
+          <!-- 右上角关闭按钮 -->
+          <button class="preview-close" @click="closePreview">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+
+          <!-- 页码 -->
+          <div class="preview-counter" v-if="mark.images.length > 1">
+            {{ previewIndex + 1 }} / {{ mark.images.length }}
+          </div>
+
+          <!-- 图片 -->
+          <img :src="mark.images[previewIndex]" class="preview-img" alt="预览图片" />
+
+          <!-- 左切换 -->
+          <button
+            v-if="mark.images.length > 1 && previewIndex > 0"
+            class="preview-nav preview-nav-prev"
+            @click.stop="previewPrev"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+
+          <!-- 右切换 -->
+          <button
+            v-if="mark.images.length > 1 && previewIndex < mark.images.length - 1"
+            class="preview-nav preview-nav-next"
+            @click.stop="previewNext"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+      </transition>
+    </teleport>
   </div>
 
   <!-- 加载失败 -->
@@ -166,7 +211,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { showImagePreview } from 'vant'
 import type { Mark } from '@/types'
 import MapView from '@/components/MapView.vue'
 import { useMarkStore } from '@/stores/markStore'
@@ -179,6 +223,10 @@ const characterStore = useCharacterStore()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const currentImageIndex = ref(0)
+
+// 自定义全屏图片预览状态
+const previewVisible = ref(false)
+const previewIndex = ref(0)
 
 const mark = computed(() => {
   const id = route.params.id as string
@@ -215,14 +263,26 @@ function formatTime(timestamp: number): string {
 
 function previewImage(index: number) {
   if (!mark.value) return
-  showImagePreview({
-    images: mark.value.images,
-    startPosition: index,
-    closeable: true,
-    closeOnClickOverlay: true,
-    closeOnPopstate: true,
-    closeIconPosition: 'top-right',
-  })
+  previewIndex.value = index
+  previewVisible.value = true
+}
+
+function closePreview() {
+  previewVisible.value = false
+}
+
+function previewPrev() {
+  if (previewIndex.value > 0) previewIndex.value--
+}
+
+function previewNext() {
+  if (mark.value && previewIndex.value < mark.value.images.length - 1) previewIndex.value++
+}
+
+function onPreviewOverlayClick(e: MouseEvent) {
+  if ((e.target as HTMLElement).classList.contains('preview-overlay')) {
+    closePreview()
+  }
 }
 
 function onMarkerClick(clickedMark: Mark) {
@@ -618,6 +678,97 @@ function goToMap() {
       }
     }
   }
+}
+
+// 全屏图片预览
+.preview-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .preview-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 40px;
+    height: 40px;
+    border-radius: $radius-full;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .preview-counter {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.7);
+    font-size: $font-size-sm;
+    z-index: 10;
+    user-select: none;
+  }
+
+  .preview-img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    user-select: none;
+    border-radius: 4px;
+  }
+
+  .preview-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: $radius-full;
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: background 0.15s;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .preview-nav-prev {
+    left: 16px;
+  }
+
+  .preview-nav-next {
+    right: 16px;
+  }
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .detail-empty {

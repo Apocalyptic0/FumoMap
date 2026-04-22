@@ -73,9 +73,6 @@ watch(
       if (props.draggableMarker) {
         updateDragMarkerPosition(newCenter)
       }
-      if (props.showLocationMarker) {
-        updateLocationMarker(newCenter)
-      }
     }
   }
 )
