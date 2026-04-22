@@ -1,0 +1,81 @@
+// =============================
+// FumoMap 清新淡彩风格设计 Token
+// =============================
+
+// --- 主色调 ---
+$color-primary: #B8A9E8;          // 淡紫色（主色）
+$color-primary-light: #D4CAF0;    // 浅紫
+$color-primary-dark: #9B87D6;     // 深紫
+
+// --- 辅助色 ---
+$color-pink: #F2B8C6;             // 淡粉
+$color-pink-light: #FAD6E0;       // 浅粉
+$color-blue: #A8D8EA;             // 淡蓝
+$color-blue-light: #C8E8F4;       // 浅蓝
+$color-green: #B8E6C8;            // 淡绿
+$color-green-light: #D4F0DC;      // 浅绿
+$color-yellow: #F5E6A3;           // 淡黄
+$color-peach: #F5C4A1;            // 淡桃
+
+// --- 背景色 ---
+$bg-primary: #FDFBFF;             // 主背景（微紫白）
+$bg-card: #FFFFFF;                // 卡片背景
+$bg-overlay: rgba(255, 255, 255, 0.85); // 磨砂玻璃覆盖层
+$bg-map-overlay: rgba(253, 251, 255, 0.92);
+
+// --- 文字色 ---
+$text-primary: #2D2B3D;           // 主文字（深紫灰）
+$text-secondary: #6E6B7B;         // 副文字
+$text-tertiary: #A09DAE;          // 辅助文字
+$text-placeholder: #C5C3CF;       // 占位文字
+
+// --- 边框与分割线 ---
+$border-color: #EDE9F5;           // 边框色
+$border-color-light: #F5F3FA;     // 浅边框
+$divider-color: #F0EDF7;          // 分割线
+
+// --- 阴影 ---
+$shadow-sm: 0 2px 8px rgba(184, 169, 232, 0.12);
+$shadow-md: 0 4px 16px rgba(184, 169, 232, 0.16);
+$shadow-lg: 0 8px 32px rgba(184, 169, 232, 0.20);
+$shadow-card: 0 2px 12px rgba(184, 169, 232, 0.10);
+
+// --- 圆角 ---
+$radius-sm: 8px;
+$radius-md: 12px;
+$radius-lg: 16px;
+$radius-xl: 24px;
+$radius-full: 9999px;
+
+// --- 字体 ---
+$font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+  'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
+  sans-serif;
+$font-size-xs: 11px;
+$font-size-sm: 13px;
+$font-size-base: 15px;
+$font-size-lg: 17px;
+$font-size-xl: 20px;
+$font-size-xxl: 24px;
+
+// --- 间距 ---
+$spacing-xs: 4px;
+$spacing-sm: 8px;
+$spacing-md: 12px;
+$spacing-lg: 16px;
+$spacing-xl: 24px;
+$spacing-xxl: 32px;
+
+// --- 动画 ---
+$transition-fast: 0.15s ease;
+$transition-normal: 0.25s ease;
+$transition-slow: 0.35s ease;
+
+// --- 地图标记 ---
+$marker-size: 40px;
+$marker-size-hover: 48px;
+$marker-border: 2px solid #fff;
+$marker-shadow: 0 2px 8px rgba(184, 169, 232, 0.35);
+
+// --- Vant 主题变量覆盖 ---
+$van-primary-color: $color-primary;
