@@ -2,30 +2,54 @@
   <div class="mark-detail-view" v-if="mark">
     <!-- 顶部固定导航栏 -->
     <div class="detail-header">
-      <button class="back-btn glass-effect" @click="router.back()">
+      <button class="header-btn glass-effect" @click="router.back()" title="返回上一页">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="15 18 9 12 15 6"></polyline>
         </svg>
       </button>
       <span class="header-title">打卡详情</span>
-      <span class="header-spacer"></span>
+      <button class="header-btn glass-effect" @click="goToMap" title="返回地图">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
 
     <!-- 上方左右分栏：左图片 + 右地图 -->
     <div class="hero-split">
-      <!-- 左侧图片区（Swipe 左右滑动切换） -->
+      <!-- 左侧图片区（带左右切换按钮） -->
       <div class="hero-images" v-if="mark.images.length > 0">
-        <van-swipe class="image-swipe" :autoplay="0" indicator-color="#fff" :loop="false">
-          <van-swipe-item v-for="(img, index) in mark.images" :key="index">
-            <img
-              :src="img"
-              class="swipe-img"
-              alt="打卡图片"
-              @click="previewImage(index)"
-            />
-          </van-swipe-item>
-        </van-swipe>
-        <span v-if="mark.images.length > 1" class="images-counter">{{ mark.images.length }}张</span>
+        <img
+          :src="mark.images[currentImageIndex]"
+          class="hero-img"
+          alt="打卡图片"
+          @click="previewImage(currentImageIndex)"
+        />
+        <!-- 左切换按钮 -->
+        <button
+          v-if="mark.images.length > 1 && currentImageIndex > 0"
+          class="img-nav-btn img-nav-prev"
+          @click="currentImageIndex--"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <!-- 右切换按钮 -->
+        <button
+          v-if="mark.images.length > 1 && currentImageIndex < mark.images.length - 1"
+          class="img-nav-btn img-nav-next"
+          @click="currentImageIndex++"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+        <!-- 页码指示器 -->
+        <span v-if="mark.images.length > 1" class="images-indicator">
+          {{ currentImageIndex + 1 }} / {{ mark.images.length }}
+        </span>
       </div>
       <!-- 无图片时占位 -->
       <div class="hero-images hero-images--empty" v-else>
@@ -140,7 +164,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showImagePreview } from 'vant'
 import type { Mark } from '@/types'
@@ -154,10 +178,16 @@ const markStore = useMarkStore()
 const characterStore = useCharacterStore()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
+const currentImageIndex = ref(0)
 
 const mark = computed(() => {
   const id = route.params.id as string
   return markStore.getMarkById(id) ?? null
+})
+
+// 切换标记时重置图片索引
+watch(() => route.params.id, () => {
+  currentImageIndex.value = 0
 })
 
 const primaryCharacter = computed(() => {
@@ -191,14 +221,28 @@ function previewImage(index: number) {
     closeable: true,
     closeOnClickOverlay: true,
     closeOnPopstate: true,
+    closeIconPosition: 'top-right',
   })
 }
 
 function onMarkerClick(clickedMark: Mark) {
-  // 如果点击的是当前标记，不做操作
   if (clickedMark.id === mark.value?.id) return
-  // 跳转到其他标记的详情页
   router.push(`/mark/${clickedMark.id}`)
+}
+
+/** × 按钮：返回地图并定位到当前标记坐标 */
+function goToMap() {
+  if (mark.value) {
+    router.push({
+      path: '/',
+      query: {
+        lat: String(mark.value.lat),
+        lng: String(mark.value.lng),
+      },
+    })
+  } else {
+    router.push('/')
+  }
 }
 </script>
 
@@ -224,7 +268,7 @@ function onMarkerClick(clickedMark: Mark) {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 
-  .back-btn {
+  .header-btn {
     width: 36px;
     height: 36px;
     border-radius: $radius-full;
@@ -236,6 +280,7 @@ function onMarkerClick(clickedMark: Mark) {
     justify-content: center;
     cursor: pointer;
     box-shadow: $shadow-sm;
+    flex-shrink: 0;
 
     &:active {
       transform: scale(0.9);
@@ -248,10 +293,6 @@ function onMarkerClick(clickedMark: Mark) {
     font-size: $font-size-lg;
     font-weight: 600;
     color: $text-primary;
-  }
-
-  .header-spacer {
-    width: 36px;
   }
 }
 
@@ -267,37 +308,67 @@ function onMarkerClick(clickedMark: Mark) {
     position: relative;
     flex: 1;
     min-width: 0;
-    background: $bg-card;
+    background: #1a1a1a;
+    overflow: hidden;
 
-    .image-swipe {
+    .hero-img {
       width: 100%;
       height: 100%;
+      object-fit: contain;
+      cursor: pointer;
+      display: block;
+    }
 
-      :deep(.van-swipe-item) {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f5f5f5;
+    // 左右切换按钮
+    .img-nav-btn {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 32px;
+      height: 32px;
+      border-radius: $radius-full;
+      border: none;
+      background: rgba(255, 255, 255, 0.85);
+      color: $text-primary;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: $shadow-sm;
+      z-index: 5;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #fff;
+        box-shadow: $shadow-md;
       }
 
-      .swipe-img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        cursor: pointer;
+      &:active {
+        transform: translateY(-50%) scale(0.9);
       }
     }
 
-    .images-counter {
-      position: absolute;
-      top: $spacing-sm;
+    .img-nav-prev {
+      left: $spacing-sm;
+    }
+
+    .img-nav-next {
       right: $spacing-sm;
+    }
+
+    // 页码指示器
+    .images-indicator {
+      position: absolute;
+      bottom: $spacing-sm;
+      left: 50%;
+      transform: translateX(-50%);
       font-size: $font-size-xs;
       color: #fff;
       background: rgba(0, 0, 0, 0.5);
-      padding: 2px 8px;
+      padding: 2px 10px;
       border-radius: $radius-full;
       z-index: 2;
+      user-select: none;
     }
 
     &--empty {

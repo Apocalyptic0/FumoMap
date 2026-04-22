@@ -47,6 +47,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, provide } from 'vue'
+import { useRoute } from 'vue-router'
 import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
 import MarkerPopup from '@/components/MarkerPopup.vue'
@@ -55,6 +56,7 @@ import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useGeolocation } from '@/composables/useGeolocation'
 
+const route = useRoute()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
 const { position, loading: geoLoading, error: geoError, locate } = useGeolocation()
@@ -80,7 +82,15 @@ async function handleLocate() {
 }
 
 onMounted(async () => {
-  await locate()
+  // 检查是否从详情页带了坐标参数回来
+  const queryLat = Number(route.query.lat)
+  const queryLng = Number(route.query.lng)
+  if (queryLat && queryLng) {
+    // 飞到详情页标记的坐标
+    position.value = { lat: queryLat, lng: queryLng }
+  } else {
+    await locate()
+  }
 })
 </script>
 
