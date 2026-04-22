@@ -7,7 +7,6 @@
       :marks="markStore.marks"
       :get-character="characterStore.getCharacterById"
       :show-location-marker="true"
-      :location-accuracy="accuracy"
       @marker-click="onMarkerClick"
       @map-move="onMapMove"
     />
@@ -47,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, provide, onUnmounted } from 'vue'
+import { ref, onMounted, provide } from 'vue'
 import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
 import MarkerPopup from '@/components/MarkerPopup.vue'
@@ -58,7 +57,7 @@ import { useGeolocation } from '@/composables/useGeolocation'
 
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
-const { position, accuracy, loading: geoLoading, error: geoError, locate, startWatch, stopWatch } = useGeolocation()
+const { position, loading: geoLoading, error: geoError, locate } = useGeolocation()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const selectedMark = ref<Mark | null>(null)
@@ -82,12 +81,6 @@ async function handleLocate() {
 
 onMounted(async () => {
   await locate()
-  // 定位成功后启动持续监听，蓝点会实时跟随
-  startWatch()
-})
-
-onUnmounted(() => {
-  stopWatch()
 })
 </script>
 

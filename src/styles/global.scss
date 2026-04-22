@@ -150,56 +150,47 @@ img {
   }
 }
 
-// --- 当前位置蓝点标记（带脉冲动画） ---
+// --- 当前位置蓝点标记（增强版，更醒目） ---
 .location-marker {
   background: none !important;
   border: none !important;
 
   .location-dot {
     position: relative;
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
 
     .location-dot-pulse {
       position: absolute;
-      width: 24px;
-      height: 24px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      background: rgba($color-blue, 0.3);
+      background: rgba($color-blue, 0.35);
       animation: locationPulse 2s ease-out infinite;
     }
 
     .location-dot-center {
-      width: 12px;
-      height: 12px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: $color-blue;
-      border: 2px solid #fff;
-      box-shadow: 0 0 6px rgba($color-blue, 0.5);
+      border: 3px solid #fff;
+      box-shadow: 0 0 8px rgba($color-blue, 0.7), 0 0 20px rgba($color-blue, 0.3);
       z-index: 1;
     }
   }
 }
 
-// --- 定位精度圈 ---
-.location-accuracy-circle {
-  stroke: $color-blue;
-  stroke-opacity: 0.3;
-  stroke-width: 1;
-  fill: $color-blue;
-  fill-opacity: 0.08;
-}
-
 @keyframes locationPulse {
   0% {
     transform: scale(1);
-    opacity: 1;
+    opacity: 0.8;
   }
   100% {
-    transform: scale(2.5);
+    transform: scale(3);
     opacity: 0;
   }
 }

@@ -1,35 +1,40 @@
 <template>
   <div class="mark-detail-view" v-if="mark">
-    <!-- 上方主视觉区域：全宽地图 + 图片缩略条叠加 -->
+    <!-- 顶部固定导航栏 -->
+    <div class="detail-header">
+      <button class="back-btn glass-effect" @click="router.back()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+      </button>
+      <span class="header-title">打卡详情</span>
+      <span class="header-spacer"></span>
+    </div>
+
+    <!-- 上方主视觉区域：地图 -->
     <div class="hero-section">
-      <!-- 地图 -->
       <div class="hero-map" ref="miniMapEl"></div>
 
-      <!-- 图片缩略条叠加在地图底部 -->
-      <div class="hero-image-strip" v-if="mark.images.length > 0">
-        <div class="strip-scroll">
-          <img
-            v-for="(img, index) in mark.images"
-            :key="index"
-            :src="img"
-            class="strip-thumb"
-            alt="打卡图片"
-            @click="previewImage(index)"
-          />
-        </div>
-        <span v-if="mark.images.length > 1" class="strip-counter">{{ mark.images.length }}张</span>
-      </div>
-
-      <!-- 地点名称叠加在地图上方 -->
+      <!-- 地点名称叠加 -->
       <div class="hero-location-badge">
         <span class="badge-icon">📍</span>
         <span class="badge-name">{{ mark.locationName || '未命名地点' }}</span>
       </div>
+    </div>
 
-      <!-- 返回按钮 -->
-      <button class="back-btn glass-effect" @click="router.back()">
-        ‹
-      </button>
+    <!-- 图片区域（独立区块，不在地图内叠加） -->
+    <div class="image-section" v-if="mark.images.length > 0">
+      <div class="image-scroll">
+        <img
+          v-for="(img, index) in mark.images"
+          :key="index"
+          :src="img"
+          class="image-thumb"
+          alt="打卡图片"
+          @click="previewImage(index)"
+        />
+      </div>
+      <span v-if="mark.images.length > 1" class="image-counter">{{ mark.images.length }}张</span>
     </div>
 
     <!-- 下方可滚动内容区 -->
@@ -232,12 +237,55 @@ onUnmounted(() => {
   padding-bottom: 72px;
 }
 
-// 上方主视觉区域
+// 顶部导航栏
+.detail-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) $spacing-md $spacing-sm;
+  background: $bg-overlay;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  .back-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: $radius-full;
+    border: none;
+    background: rgba(255, 255, 255, 0.8);
+    color: $text-primary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: $shadow-sm;
+
+    &:active {
+      transform: scale(0.9);
+    }
+  }
+
+  .header-title {
+    flex: 1;
+    text-align: center;
+    font-size: $font-size-lg;
+    font-weight: 600;
+    color: $text-primary;
+  }
+
+  .header-spacer {
+    width: 36px;
+  }
+}
+
+// 上方地图区域
 .hero-section {
   position: relative;
   width: 100%;
-  height: 55vh;
-  min-height: 280px;
+  height: 45vh;
+  min-height: 240px;
   overflow: hidden;
 
   .hero-map {
@@ -248,9 +296,8 @@ onUnmounted(() => {
   // 地点名称徽章
   .hero-location-badge {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 12px);
-    left: 50px;
-    right: $spacing-lg;
+    bottom: $spacing-md;
+    left: $spacing-md;
     z-index: 5;
     display: flex;
     align-items: center;
@@ -274,79 +321,52 @@ onUnmounted(() => {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-  }
-
-  // 图片缩略条
-  .hero-image-strip {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    padding: $spacing-sm $spacing-md;
-    background: linear-gradient(transparent, rgba(0, 0, 0, 0.3));
-    z-index: 5;
-    display: flex;
-    align-items: flex-end;
-    gap: $spacing-sm;
-
-    .strip-scroll {
-      flex: 1;
-      display: flex;
-      gap: $spacing-xs;
-      overflow-x: auto;
-      -webkit-overflow-scrolling: touch;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
-
-      .strip-thumb {
-        width: 48px;
-        height: 48px;
-        border-radius: $radius-sm;
-        object-fit: cover;
-        flex-shrink: 0;
-        border: 2px solid rgba(255, 255, 255, 0.8);
-        cursor: pointer;
-        transition: transform $transition-fast;
-
-        &:active {
-          transform: scale(0.9);
-        }
-      }
-    }
-
-    .strip-counter {
-      font-size: $font-size-xs;
-      color: #fff;
-      padding: 2px 8px;
-      border-radius: $radius-full;
-      background: rgba(0, 0, 0, 0.4);
-      flex-shrink: 0;
-      white-space: nowrap;
+      max-width: 200px;
     }
   }
 }
 
-.back-btn {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 12px);
-  left: $spacing-md;
-  z-index: 10;
-  width: 36px;
-  height: 36px;
-  border-radius: $radius-full;
-  border: none;
-  font-size: 22px;
-  color: $text-primary;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+// 图片区域（独立区块）
+.image-section {
+  position: relative;
+  padding: $spacing-md;
+  background: $bg-card;
 
-  &:active {
-    transform: scale(0.9);
+  .image-scroll {
+    display: flex;
+    gap: $spacing-sm;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    .image-thumb {
+      width: 72px;
+      height: 72px;
+      border-radius: $radius-md;
+      object-fit: cover;
+      flex-shrink: 0;
+      border: 2px solid $border-color-light;
+      cursor: pointer;
+      transition: transform $transition-fast;
+
+      &:active {
+        transform: scale(0.9);
+      }
+    }
+  }
+
+  .image-counter {
+    position: absolute;
+    right: $spacing-md;
+    top: $spacing-xs;
+    font-size: $font-size-xs;
+    color: $text-tertiary;
+    background: $bg-primary;
+    padding: 2px 8px;
+    border-radius: $radius-full;
   }
 }
 

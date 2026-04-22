@@ -25,7 +25,6 @@ export function useMap(options: UseMapOptions) {
   const markers = ref<Map<string, L.Marker>>(new Map())
   const dragMarker = ref<L.Marker | null>(null)
   const locationMarker = ref<L.Marker | null>(null) // 当前位置蓝点标记
-  const accuracyCircle = ref<L.Circle | null>(null) // 定位精度圈
 
   // 默认中心：深圳（方便国内测试）
   const defaultCenter: GeoPosition = { lat: 22.5431, lng: 113.9348 }
@@ -156,8 +155,8 @@ export function useMap(options: UseMapOptions) {
         <div class="location-dot-pulse"></div>
         <div class="location-dot-center"></div>
       </div>`,
-      iconSize: [24, 24],
-      iconAnchor: [12, 12],
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
     })
 
     locationMarker.value = L.marker([pos.lat, pos.lng], {
@@ -168,45 +167,24 @@ export function useMap(options: UseMapOptions) {
   }
 
   /**
-   * 更新当前位置标记及精度圈
+   * 更新当前位置标记
    */
-  function updateLocationMarker(pos: GeoPosition, acc?: number) {
+  function updateLocationMarker(pos: GeoPosition) {
     if (locationMarker.value) {
       locationMarker.value.setLatLng([pos.lat, pos.lng])
     } else {
       addLocationMarker(pos)
     }
-
-    // 更新精度圈
-    if (acc && acc > 0 && map.value) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const m = map.value as any
-      if (accuracyCircle.value) {
-        accuracyCircle.value.setLatLng([pos.lat, pos.lng])
-        accuracyCircle.value.setRadius(acc)
-      } else {
-        accuracyCircle.value = L.circle([pos.lat, pos.lng], {
-          radius: acc,
-          className: 'location-accuracy-circle',
-          interactive: false,
-        }).addTo(m) as L.Circle
-      }
-    }
   }
 
   /**
-   * 移除当前位置标记和精度圈
+   * 移除当前位置标记
    */
   function removeLocationMarker() {
     if (locationMarker.value && map.value) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ;(map.value as any).removeLayer(locationMarker.value)
       locationMarker.value = null
-    }
-    if (accuracyCircle.value && map.value) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(map.value as any).removeLayer(accuracyCircle.value)
-      accuracyCircle.value = null
     }
   }
 
@@ -300,7 +278,6 @@ export function useMap(options: UseMapOptions) {
     markers.value.clear()
     dragMarker.value = null
     locationMarker.value = null
-    accuracyCircle.value = null
   }
 
   /**
