@@ -1,17 +1,30 @@
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import type { GeoPosition } from '@/types'
 
 // 默认位置：深圳宝安区（方便国内测试）
 const DEFAULT_POSITION: GeoPosition = { lat: 22.5431, lng: 113.9348 }
 
+export interface GeolocationState {
+  position: ReturnType<typeof ref<GeoPosition>>
+  accuracy: ReturnType<typeof ref<number>>
+  loading: ReturnType<typeof ref<boolean>>
+  error: ReturnType<typeof ref<string | null>>
+  isDefault: ReturnType<typeof ref<boolean>>
+  locate: () => Promise<GeoPosition>
+  startWatch: () => void
+  stopWatch: () => void
+}
+
 export function useGeolocation() {
   const position = ref<GeoPosition>(DEFAULT_POSITION)
+  const accuracy = ref(0) // 定位精度（米）
   const loading = ref(false)
   const error = ref<string | null>(null)
   const isDefault = ref(true)
+  let watchId: number | null = null
 
   /**
-   * 获取当前位置
+   * 获取当前位置（单次）
    */
   async function locate(): Promise<GeoPosition> {
     if (!navigator.geolocation) {
@@ -30,6 +43,7 @@ export function useGeolocation() {
             lng: pos.coords.longitude,
           }
           position.value = geo
+          accuracy.value = pos.coords.accuracy
           isDefault.value = false
           loading.value = false
           resolve(geo)
@@ -62,12 +76,56 @@ export function useGeolocation() {
     })
   }
 
+  /**
+   * 开始持续监听位置变化（用于首页蓝点实时更新）
+   */
+  function startWatch() {
+    if (!navigator.geolocation || watchId !== null) return
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const geo: GeoPosition = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        }
+        position.value = geo
+        accuracy.value = pos.coords.accuracy
+        isDefault.value = false
+      },
+      () => {
+        // 静默处理，不覆盖已有位置
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 5000,
+      }
+    )
+  }
+
+  /**
+   * 停止监听
+   */
+  function stopWatch() {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId)
+      watchId = null
+    }
+  }
+
+  onUnmounted(() => {
+    stopWatch()
+  })
+
   return {
     position,
+    accuracy,
     loading,
     error,
     isDefault,
     locate,
+    startWatch,
+    stopWatch,
     DEFAULT_POSITION,
   }
 }

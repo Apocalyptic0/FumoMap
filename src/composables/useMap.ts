@@ -25,6 +25,7 @@ export function useMap(options: UseMapOptions) {
   const markers = ref<Map<string, L.Marker>>(new Map())
   const dragMarker = ref<L.Marker | null>(null)
   const locationMarker = ref<L.Marker | null>(null) // 当前位置蓝点标记
+  const accuracyCircle = ref<L.Circle | null>(null) // 定位精度圈
 
   // 默认中心：深圳（方便国内测试）
   const defaultCenter: GeoPosition = { lat: 22.5431, lng: 113.9348 }
@@ -47,7 +48,6 @@ export function useMap(options: UseMapOptions) {
     })
 
     // 添加瓦片层（多备选源，优先国内可用）
-    // 优先使用 CartoDB Positron（清新淡彩风格，全球 CDN 速度快）
     const tileLayers = [
       {
         url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
@@ -58,7 +58,6 @@ export function useMap(options: UseMapOptions) {
         },
       },
       {
-        // 备选：OSM 官方
         url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
         options: {
           maxZoom: 19,
@@ -67,28 +66,26 @@ export function useMap(options: UseMapOptions) {
       },
     ]
 
-    // 尝试加载第一个瓦片源
-    let tileLayer = L.tileLayer(tileLayers[0].url, tileLayers[0].options)
-    tileLayer.addTo(map.value)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = map.value as any
 
-    // 如果第一个加载失败，切换备选
+    let tileLayer = L.tileLayer(tileLayers[0].url, tileLayers[0].options)
+    tileLayer.addTo(m)
+
     tileLayer.on('tileerror', () => {
       if (map.value && tileLayers.length > 1) {
-        map.value.removeLayer(tileLayer)
+        m.removeLayer(tileLayer)
         tileLayer = L.tileLayer(tileLayers[1].url, tileLayers[1].options)
-        tileLayer.addTo(map.value)
+        tileLayer.addTo(m)
       }
     })
 
-    // 归属信息
-    L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(map.value)
+    L.control.attribution({ position: 'bottomleft', prefix: false }).addTo(m)
 
-    // 如果需要可拖拽标记（创建打卡页使用）
     if (options.draggableMarker) {
       addDragMarker(center)
     }
 
-    // 如果需要显示当前位置标记
     if (options.showLocationMarker) {
       addLocationMarker(center)
     }
@@ -99,6 +96,8 @@ export function useMap(options: UseMapOptions) {
    */
   function addDragMarker(pos: GeoPosition) {
     if (!map.value) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = map.value as any
 
     const icon = L.divIcon({
       className: 'drag-marker',
@@ -115,7 +114,7 @@ export function useMap(options: UseMapOptions) {
     dragMarker.value = L.marker([pos.lat, pos.lng], {
       icon,
       draggable: true,
-    }).addTo(map.value)
+    }).addTo(m) as L.Marker
 
     dragMarker.value.on('dragend', () => {
       if (dragMarker.value && options.onDragEnd) {
@@ -146,6 +145,8 @@ export function useMap(options: UseMapOptions) {
    */
   function addLocationMarker(pos: GeoPosition) {
     if (!map.value) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = map.value as any
 
     removeLocationMarker()
 
@@ -163,27 +164,49 @@ export function useMap(options: UseMapOptions) {
       icon,
       interactive: false,
       zIndexOffset: 1000,
-    }).addTo(map.value)
+    }).addTo(m) as L.Marker
   }
 
   /**
-   * 更新当前位置标记
+   * 更新当前位置标记及精度圈
    */
-  function updateLocationMarker(pos: GeoPosition) {
+  function updateLocationMarker(pos: GeoPosition, acc?: number) {
     if (locationMarker.value) {
       locationMarker.value.setLatLng([pos.lat, pos.lng])
     } else {
       addLocationMarker(pos)
     }
+
+    // 更新精度圈
+    if (acc && acc > 0 && map.value) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const m = map.value as any
+      if (accuracyCircle.value) {
+        accuracyCircle.value.setLatLng([pos.lat, pos.lng])
+        accuracyCircle.value.setRadius(acc)
+      } else {
+        accuracyCircle.value = L.circle([pos.lat, pos.lng], {
+          radius: acc,
+          className: 'location-accuracy-circle',
+          interactive: false,
+        }).addTo(m) as L.Circle
+      }
+    }
   }
 
   /**
-   * 移除当前位置标记
+   * 移除当前位置标记和精度圈
    */
   function removeLocationMarker() {
     if (locationMarker.value && map.value) {
-      map.value.removeLayer(locationMarker.value)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(map.value as any).removeLayer(locationMarker.value)
       locationMarker.value = null
+    }
+    if (accuracyCircle.value && map.value) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(map.value as any).removeLayer(accuracyCircle.value)
+      accuracyCircle.value = null
     }
   }
 
@@ -197,19 +220,20 @@ export function useMap(options: UseMapOptions) {
     style?: MarkerStyle
   ) {
     if (!map.value || markers.value.has(mark.id)) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m = map.value as any
 
     const markerStyle = style || { type: 'pin' as const }
     const avatarUrl = character?.avatarUrl || ''
     const markerSize = markerStyle.size || 40
     const pinColor = markerStyle.color || '#D4CAF0'
-    const pinHeight = markerSize + 16 // Pin 尖角额外高度
+    const pinHeight = markerSize + 16
 
     let iconHtml: string
 
     if (markerStyle.type === 'custom' && markerStyle.customHtml) {
       iconHtml = markerStyle.customHtml
     } else {
-      // Pin 造型：圆形头像 + 底部尖角
       const innerSize = markerSize - 8
       iconHtml = `<div class="fumo-pin-marker" style="--pin-color: ${pinColor}; --pin-size: ${markerSize}px;">
         <div class="pin-head">
@@ -226,7 +250,7 @@ export function useMap(options: UseMapOptions) {
       iconAnchor: [markerSize / 2, pinHeight],
     })
 
-    const marker = L.marker([mark.lat, mark.lng], { icon }).addTo(map.value)
+    const marker = L.marker([mark.lat, mark.lng], { icon }).addTo(m) as L.Marker
 
     if (onClick) {
       marker.on('click', () => onClick(mark))
@@ -241,7 +265,8 @@ export function useMap(options: UseMapOptions) {
   function removeMarkMarker(markId: string) {
     const marker = markers.value.get(markId)
     if (marker && map.value) {
-      map.value.removeLayer(marker)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(map.value as any).removeLayer(marker)
       markers.value.delete(markId)
     }
   }
@@ -251,7 +276,8 @@ export function useMap(options: UseMapOptions) {
    */
   function clearMarkers() {
     markers.value.forEach((marker) => {
-      map.value?.removeLayer(marker)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(map.value as any)?.removeLayer(marker)
     })
     markers.value.clear()
   }
@@ -274,6 +300,7 @@ export function useMap(options: UseMapOptions) {
     markers.value.clear()
     dragMarker.value = null
     locationMarker.value = null
+    accuracyCircle.value = null
   }
 
   /**

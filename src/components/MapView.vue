@@ -15,12 +15,14 @@ const props = withDefaults(
     getCharacter?: (id: string) => Character | undefined
     draggableMarker?: boolean
     showLocationMarker?: boolean
+    locationAccuracy?: number
   }>(),
   {
     zoom: 16,
     marks: () => [],
     draggableMarker: false,
     showLocationMarker: false,
+    locationAccuracy: 0,
   }
 )
 
@@ -40,7 +42,6 @@ const {
   clearMarkers,
   updateDragMarkerPosition,
   updateLocationMarker,
-  removeLocationMarker,
   invalidateSize,
 } = useMap({
   container: mapEl,
@@ -75,8 +76,18 @@ watch(
         updateDragMarkerPosition(newCenter)
       }
       if (props.showLocationMarker) {
-        updateLocationMarker(newCenter)
+        updateLocationMarker(newCenter, props.locationAccuracy)
       }
+    }
+  }
+)
+
+// 监听精度变化，单独更新精度圈
+watch(
+  () => props.locationAccuracy,
+  (newAcc) => {
+    if (props.showLocationMarker && props.center && newAcc > 0) {
+      updateLocationMarker(props.center, newAcc)
     }
   }
 )

@@ -1,49 +1,29 @@
 <template>
   <div class="mark-detail-view" v-if="mark">
-    <!-- 顶部区域：左侧图片 + 右侧坐标信息 -->
-    <div class="top-section">
-      <!-- 左侧：图片水平滚动 -->
-      <div class="images-panel" v-if="mark.images.length > 0">
-        <div class="images-scroll">
+    <!-- 上方主视觉区域：全宽地图 + 图片缩略条叠加 -->
+    <div class="hero-section">
+      <!-- 地图 -->
+      <div class="hero-map" ref="miniMapEl"></div>
+
+      <!-- 图片缩略条叠加在地图底部 -->
+      <div class="hero-image-strip" v-if="mark.images.length > 0">
+        <div class="strip-scroll">
           <img
             v-for="(img, index) in mark.images"
             :key="index"
             :src="img"
-            class="scroll-image"
+            class="strip-thumb"
             alt="打卡图片"
             @click="previewImage(index)"
           />
         </div>
-        <div class="image-counter" v-if="mark.images.length > 1">
-          {{ currentImageIndex + 1 }} / {{ mark.images.length }}
-        </div>
-      </div>
-      <div class="images-panel images-empty" v-else>
-        <span class="empty-icon">📷</span>
-        <span class="empty-text">暂无图片</span>
+        <span v-if="mark.images.length > 1" class="strip-counter">{{ mark.images.length }}张</span>
       </div>
 
-      <!-- 右侧：坐标与地点信息 -->
-      <div class="coords-panel">
-        <div class="coords-header">
-          <span class="coords-icon">📍</span>
-          <span class="coords-name">{{ mark.locationName || '未命名地点' }}</span>
-        </div>
-        <div class="coords-detail">
-          <div class="coord-item">
-            <span class="coord-label">纬度</span>
-            <span class="coord-value">{{ mark.lat.toFixed(6) }}</span>
-          </div>
-          <div class="coord-item">
-            <span class="coord-label">经度</span>
-            <span class="coord-value">{{ mark.lng.toFixed(6) }}</span>
-          </div>
-        </div>
-        <!-- 小地图预览 -->
-        <div class="mini-map" ref="miniMapEl"></div>
-        <div class="time-info">
-          🕐 {{ formatTime(mark.createdAt) }}
-        </div>
+      <!-- 地点名称叠加在地图上方 -->
+      <div class="hero-location-badge">
+        <span class="badge-icon">📍</span>
+        <span class="badge-name">{{ mark.locationName || '未命名地点' }}</span>
       </div>
 
       <!-- 返回按钮 -->
@@ -52,47 +32,66 @@
       </button>
     </div>
 
-    <!-- 角色信息区 -->
-    <div class="character-section">
-      <div class="primary-character">
-        <img
-          :src="primaryCharacter?.avatarUrl"
-          :alt="primaryCharacter?.name"
-          class="primary-avatar"
-        />
-        <div class="primary-detail">
-          <h2 class="primary-name">{{ primaryCharacter?.name || '未知角色' }}</h2>
-          <span class="primary-name-en">{{ primaryCharacter?.nameEn }}</span>
+    <!-- 下方可滚动内容区 -->
+    <div class="detail-body">
+      <!-- 坐标与时间信息 -->
+      <div class="info-row">
+        <div class="info-chip">
+          <span class="chip-label">纬度</span>
+          <span class="chip-value">{{ mark.lat.toFixed(6) }}</span>
+        </div>
+        <div class="info-chip">
+          <span class="chip-label">经度</span>
+          <span class="chip-value">{{ mark.lng.toFixed(6) }}</span>
+        </div>
+        <div class="info-chip">
+          <span class="chip-label">时间</span>
+          <span class="chip-value">{{ formatTime(mark.createdAt) }}</span>
         </div>
       </div>
 
-      <!-- 其余角色小头像 -->
-      <div v-if="extraCharacters.length > 0" class="extra-characters">
-        <span class="extra-label">同行角色：</span>
-        <div class="extra-avatars">
-          <div
-            v-for="char in extraCharacters"
-            :key="char.id"
-            class="extra-avatar-item"
-            :title="char.name"
-          >
-            <img :src="char.avatarUrl" :alt="char.name" class="extra-avatar" />
-            <span class="extra-name">{{ char.name }}</span>
+      <!-- 角色信息区 -->
+      <div class="character-section">
+        <div class="primary-character">
+          <img
+            :src="primaryCharacter?.avatarUrl"
+            :alt="primaryCharacter?.name"
+            class="primary-avatar"
+          />
+          <div class="primary-detail">
+            <h2 class="primary-name">{{ primaryCharacter?.name || '未知角色' }}</h2>
+            <span class="primary-name-en">{{ primaryCharacter?.nameEn }}</span>
+          </div>
+        </div>
+
+        <!-- 其余角色小头像 -->
+        <div v-if="extraCharacters.length > 0" class="extra-characters">
+          <span class="extra-label">同行角色：</span>
+          <div class="extra-avatars">
+            <div
+              v-for="char in extraCharacters"
+              :key="char.id"
+              class="extra-avatar-item"
+              :title="char.name"
+            >
+              <img :src="char.avatarUrl" :alt="char.name" class="extra-avatar" />
+              <span class="extra-name">{{ char.name }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- 描述内容区 -->
-    <div class="description-section" v-if="mark.description">
-      <div class="section-divider"></div>
-      <p class="description-text">{{ mark.description }}</p>
-    </div>
+      <!-- 描述内容区 -->
+      <div class="description-section" v-if="mark.description">
+        <div class="section-divider"></div>
+        <p class="description-text">{{ mark.description }}</p>
+      </div>
 
-    <!-- 标签 -->
-    <div class="tags-section" v-if="mark.tags.length > 0">
-      <div v-for="tag in mark.tags" :key="tag" class="tag-capsule">
-        {{ tag }}
+      <!-- 标签 -->
+      <div class="tags-section" v-if="mark.tags.length > 0">
+        <div v-for="tag in mark.tags" :key="tag" class="tag-capsule">
+          {{ tag }}
+        </div>
       </div>
     </div>
 
@@ -137,7 +136,6 @@ const characterStore = useCharacterStore()
 
 const miniMapEl = ref<HTMLElement | null>(null)
 let miniMap: L.Map | null = null
-const currentImageIndex = ref(0)
 
 const mark = computed(() => {
   const id = route.params.id as string
@@ -160,8 +158,7 @@ const extraCharacters = computed(() => {
 function formatTime(timestamp: number): string {
   const date = new Date(timestamp)
   return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
@@ -181,7 +178,7 @@ function initMiniMap() {
 
   miniMap = L.map(miniMapEl.value, {
     center: [mark.value.lat, mark.value.lng],
-    zoom: 15,
+    zoom: 16,
     zoomControl: false,
     attributionControl: false,
     dragging: false,
@@ -197,7 +194,7 @@ function initMiniMap() {
     subdomains: 'abcd',
   }).addTo(miniMap)
 
-  // 添加标记点（Pin 造型）
+  // 添加标记点
   const icon = L.divIcon({
     className: 'mini-map-marker',
     html: `<div class="fumo-pin-marker" style="--pin-color: #D4CAF0; --pin-size: 24px;">
@@ -227,7 +224,6 @@ onUnmounted(() => {
 
 <style lang="scss" scoped>
 @use '@/styles/variables' as *;
-@import '@/styles/map.scss';
 
 .mark-detail-view {
   width: 100%;
@@ -236,94 +232,43 @@ onUnmounted(() => {
   padding-bottom: 72px;
 }
 
-// 顶部区域：左右分栏
-.top-section {
-  display: flex;
+// 上方主视觉区域
+.hero-section {
   position: relative;
-  background: $bg-card;
-}
+  width: 100%;
+  height: 55vh;
+  min-height: 280px;
+  overflow: hidden;
 
-// 左侧图片面板
-.images-panel {
-  flex: 1.2;
-  min-width: 0;
-  position: relative;
-  background: $border-color-light;
-
-  .images-scroll {
+  .hero-map {
     width: 100%;
-    height: 240px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    display: flex;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-
-    &::-webkit-scrollbar {
-      display: none;
-    }
-
-    .scroll-image {
-      width: 100%;
-      min-width: 100%;
-      height: 100%;
-      object-fit: cover;
-      scroll-snap-align: start;
-      flex-shrink: 0;
-      cursor: pointer;
-    }
+    height: 100%;
   }
 
-  .image-counter {
+  // 地点名称徽章
+  .hero-location-badge {
     position: absolute;
-    bottom: $spacing-sm;
-    right: $spacing-sm;
-    background: rgba(0, 0, 0, 0.5);
-    color: #fff;
-    font-size: $font-size-xs;
-    padding: 2px 8px;
-    border-radius: $radius-full;
-  }
-
-  &.images-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: $spacing-sm;
-
-    .empty-icon {
-      font-size: 40px;
-      opacity: 0.5;
-    }
-
-    .empty-text {
-      font-size: $font-size-sm;
-      color: $text-tertiary;
-    }
-  }
-}
-
-// 右侧坐标面板
-.coords-panel {
-  flex: 0.8;
-  padding: $spacing-md;
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-sm;
-  background: $bg-card;
-
-  .coords-header {
+    top: calc(env(safe-area-inset-top, 0px) + 12px);
+    left: 50px;
+    right: $spacing-lg;
+    z-index: 5;
     display: flex;
     align-items: center;
     gap: $spacing-xs;
+    padding: $spacing-xs $spacing-md;
+    border-radius: $radius-full;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: $shadow-sm;
 
-    .coords-icon {
-      font-size: 16px;
+    .badge-icon {
+      font-size: 14px;
+      flex-shrink: 0;
     }
 
-    .coords-name {
-      font-size: $font-size-base;
+    .badge-name {
+      font-size: $font-size-sm;
       font-weight: 600;
       color: $text-primary;
       overflow: hidden;
@@ -332,41 +277,55 @@ onUnmounted(() => {
     }
   }
 
-  .coords-detail {
+  // 图片缩略条
+  .hero-image-strip {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: $spacing-sm $spacing-md;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.3));
+    z-index: 5;
     display: flex;
-    flex-direction: column;
-    gap: $spacing-xs;
+    align-items: flex-end;
+    gap: $spacing-sm;
 
-    .coord-item {
+    .strip-scroll {
+      flex: 1;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      gap: $spacing-xs;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
 
-      .coord-label {
-        font-size: $font-size-xs;
-        color: $text-tertiary;
+      &::-webkit-scrollbar {
+        display: none;
       }
 
-      .coord-value {
-        font-size: $font-size-xs;
-        color: $text-secondary;
-        font-family: monospace;
+      .strip-thumb {
+        width: 48px;
+        height: 48px;
+        border-radius: $radius-sm;
+        object-fit: cover;
+        flex-shrink: 0;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        cursor: pointer;
+        transition: transform $transition-fast;
+
+        &:active {
+          transform: scale(0.9);
+        }
       }
     }
-  }
 
-  .mini-map {
-    width: 100%;
-    height: 80px;
-    border-radius: $radius-md;
-    overflow: hidden;
-    background: $border-color-light;
-    flex-shrink: 0;
-  }
-
-  .time-info {
-    font-size: $font-size-xs;
-    color: $text-tertiary;
+    .strip-counter {
+      font-size: $font-size-xs;
+      color: #fff;
+      padding: 2px 8px;
+      border-radius: $radius-full;
+      background: rgba(0, 0, 0, 0.4);
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
   }
 }
 
@@ -391,10 +350,51 @@ onUnmounted(() => {
   }
 }
 
+// 下方内容区
+.detail-body {
+  padding: $spacing-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+
+// 坐标与时间信息条
+.info-row {
+  display: flex;
+  gap: $spacing-sm;
+  flex-wrap: wrap;
+
+  .info-chip {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: $spacing-sm $spacing-md;
+    background: $bg-card;
+    border-radius: $radius-md;
+    flex: 1;
+    min-width: 0;
+
+    .chip-label {
+      font-size: $font-size-xs;
+      color: $text-tertiary;
+    }
+
+    .chip-value {
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      font-family: monospace;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+}
+
 // 角色信息区
 .character-section {
-  padding: $spacing-lg;
+  padding: $spacing-md;
   background: $bg-card;
+  border-radius: $radius-md;
 
   .primary-character {
     display: flex;
@@ -403,8 +403,8 @@ onUnmounted(() => {
     margin-bottom: $spacing-md;
 
     .primary-avatar {
-      width: 48px;
-      height: 48px;
+      width: 44px;
+      height: 44px;
       border-radius: $radius-full;
       object-fit: cover;
       border: 2px solid $color-primary-light;
@@ -463,13 +463,12 @@ onUnmounted(() => {
 }
 
 .description-section {
-  padding: 0 $spacing-lg $spacing-lg;
-  background: $bg-card;
+  padding: 0;
 
   .section-divider {
     height: 1px;
     background: $divider-color;
-    margin-bottom: $spacing-lg;
+    margin-bottom: $spacing-md;
   }
 
   .description-text {
@@ -483,8 +482,6 @@ onUnmounted(() => {
 }
 
 .tags-section {
-  padding: 0 $spacing-lg $spacing-lg;
-  background: $bg-card;
   display: flex;
   flex-wrap: wrap;
   gap: $spacing-xs;

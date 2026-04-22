@@ -9,7 +9,7 @@
     />
 
     <div class="create-content">
-      <!-- 地图选点区域 -->
+      <!-- 地图选点区域（占大部分空间） -->
       <div class="map-section">
         <MapView
           :center="selectedPosition"
@@ -23,9 +23,14 @@
         </button>
       </div>
 
-      <!-- 表单区域 -->
+      <!-- 表单区域（紧凑布局，下滑展开） -->
       <div class="form-section">
-        <!-- 地点名称 - 支持自动获取 -->
+        <!-- 下滑提示 -->
+        <div class="scroll-hint">
+          <div class="hint-bar"></div>
+        </div>
+
+        <!-- 地点名称 -->
         <div class="form-item location-name-item">
           <label class="form-label">地点名称</label>
           <van-field
@@ -53,10 +58,10 @@
           </div>
         </div>
 
-        <!-- 图片上传 -->
+        <!-- 图片上传（小缩略图模式） -->
         <div class="form-item">
           <label class="form-label">打卡照片</label>
-          <ImageUploader v-model="form.images" :max-count="3" />
+          <ImageUploader v-model="form.images" :max-count="3" class="compact-uploader" />
         </div>
 
         <!-- 角色选择 -->
@@ -89,7 +94,7 @@
           label="描述"
           placeholder="记录一下这次和 fumo 的旅途吧~"
           :border="false"
-          :autosize="{ minHeight: 80 }"
+          :autosize="{ minHeight: 60 }"
           class="form-field"
         />
 
@@ -141,14 +146,14 @@ const characterStore = useCharacterStore()
 const { position, loading: geoPosLoading, locate } = useGeolocation()
 const { suggestions: geoSuggestions, loading: geoNameLoading, reverseGeocode } = useReverseGeocode()
 
-// 定位加载状态（位置获取或地标名称获取）
+// 定位加载状态
 const geoLoading = computed(() => geoPosLoading.value || geoNameLoading.value)
 
 const showCharacterPicker = ref(false)
 const tagsInput = ref('')
 const showSuggestions = ref(true)
 
-// 从路由参数获取地图中心坐标（由首页 FumoFab 传入）
+// 从路由参数获取地图中心坐标
 const routeCenter: GeoPosition = route.query.lat && route.query.lng
   ? { lat: parseFloat(route.query.lat as string), lng: parseFloat(route.query.lng as string) }
   : { ...position.value }
@@ -173,7 +178,6 @@ function onDragEnd(pos: GeoPosition) {
   form.value.lat = pos.lat
   form.value.lng = pos.lng
   selectedPosition.value = pos
-  // 拖拽后自动获取附近地标
   fetchLocationName(pos)
 }
 
@@ -216,7 +220,6 @@ function handleSubmit() {
     return
   }
 
-  // 处理标签
   if (tagsInput.value.trim()) {
     form.value.tags = tagsInput.value
       .split(/[,，]/)
@@ -234,7 +237,6 @@ function handleSubmit() {
   }
 }
 
-// 初始化：使用路由传入的坐标，并获取附近地标
 onMounted(() => {
   fetchLocationName(routeCenter)
 })
@@ -258,10 +260,11 @@ onMounted(() => {
 .create-content {
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .map-section {
-  height: 40vh;
+  height: 60vh;
   position: relative;
 
   .use-location-btn {
@@ -287,10 +290,24 @@ onMounted(() => {
 }
 
 .form-section {
-  padding: $spacing-lg;
+  padding: 0 $spacing-lg $spacing-lg;
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+}
+
+// 下滑提示条
+.scroll-hint {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-sm 0;
+
+  .hint-bar {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: $border-color;
+  }
 }
 
 .form-field {
@@ -317,6 +334,27 @@ onMounted(() => {
     font-size: $font-size-sm;
     color: $text-secondary;
     margin-bottom: $spacing-sm;
+  }
+}
+
+// 紧凑图片上传器
+.compact-uploader {
+  :deep(.upload-grid) {
+    grid-template-columns: repeat(4, 1fr);
+    gap: $spacing-xs;
+  }
+
+  :deep(.upload-placeholder) {
+    aspect-ratio: 1;
+    border-radius: $radius-sm;
+
+    .upload-icon {
+      font-size: 20px;
+    }
+  }
+
+  :deep(.upload-item) {
+    border-radius: $radius-sm;
   }
 }
 
