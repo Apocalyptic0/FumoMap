@@ -11,30 +11,37 @@
       <span class="header-spacer"></span>
     </div>
 
-    <!-- 上方主视觉区域：地图 -->
-    <div class="hero-section">
-      <div class="hero-map" ref="miniMapEl"></div>
-
-      <!-- 地点名称叠加 -->
-      <div class="hero-location-badge">
-        <span class="badge-icon">📍</span>
-        <span class="badge-name">{{ mark.locationName || '未命名地点' }}</span>
+    <!-- 上方左右分栏：左图片 + 右地图 -->
+    <div class="hero-split">
+      <!-- 左侧图片区（支持纵向滑动） -->
+      <div class="hero-images" v-if="mark.images.length > 0">
+        <div class="images-scroll">
+          <img
+            v-for="(img, index) in mark.images"
+            :key="index"
+            :src="img"
+            class="hero-img"
+            alt="打卡图片"
+            @click="previewImage(index)"
+          />
+        </div>
+        <span v-if="mark.images.length > 1" class="images-counter">{{ mark.images.length }}张</span>
       </div>
-    </div>
-
-    <!-- 图片区域（独立区块，不在地图内叠加） -->
-    <div class="image-section" v-if="mark.images.length > 0">
-      <div class="image-scroll">
-        <img
-          v-for="(img, index) in mark.images"
-          :key="index"
-          :src="img"
-          class="image-thumb"
-          alt="打卡图片"
-          @click="previewImage(index)"
-        />
+      <!-- 无图片时占位 -->
+      <div class="hero-images hero-images--empty" v-else>
+        <span class="empty-icon">🖼️</span>
+        <span class="empty-text">暂无图片</span>
       </div>
-      <span v-if="mark.images.length > 1" class="image-counter">{{ mark.images.length }}张</span>
+
+      <!-- 右侧地图区 -->
+      <div class="hero-map-wrap">
+        <div class="hero-map" ref="miniMapEl"></div>
+        <!-- 地点名称叠加 -->
+        <div class="hero-location-badge">
+          <span class="badge-icon">📍</span>
+          <span class="badge-name">{{ mark.locationName || '未命名地点' }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- 下方可滚动内容区 -->
@@ -175,6 +182,8 @@ function previewImage(index: number) {
   showImagePreview({
     images: mark.value.images,
     startPosition: index,
+    closeable: true,
+    closeOnPopstate: true,
   })
 }
 
@@ -199,7 +208,6 @@ function initMiniMap() {
     subdomains: 'abcd',
   }).addTo(miniMap)
 
-  // 添加标记点
   const icon = L.divIcon({
     className: 'mini-map-marker',
     html: `<div class="fumo-pin-marker" style="--pin-color: #D4CAF0; --pin-size: 24px;">
@@ -280,93 +288,125 @@ onUnmounted(() => {
   }
 }
 
-// 上方地图区域
-.hero-section {
-  position: relative;
+// 上方左右分栏
+.hero-split {
+  display: flex;
   width: 100%;
   height: 45vh;
   min-height: 240px;
-  overflow: hidden;
 
-  .hero-map {
-    width: 100%;
-    height: 100%;
-  }
+  // 左侧图片区
+  .hero-images {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    background: $bg-card;
 
-  // 地点名称徽章
-  .hero-location-badge {
-    position: absolute;
-    bottom: $spacing-md;
-    left: $spacing-md;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: $spacing-xs;
-    padding: $spacing-xs $spacing-md;
-    border-radius: $radius-full;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    box-shadow: $shadow-sm;
+    .images-scroll {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
 
-    .badge-icon {
-      font-size: 14px;
-      flex-shrink: 0;
+      &::-webkit-scrollbar {
+        width: 3px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 4px;
+      }
+
+      .hero-img {
+        width: 100%;
+        height: auto;
+        display: block;
+        object-fit: cover;
+        cursor: pointer;
+        transition: opacity $transition-fast;
+
+        &:active {
+          opacity: 0.85;
+        }
+
+        & + .hero-img {
+          border-top: 2px solid $bg-primary;
+        }
+      }
     }
 
-    .badge-name {
-      font-size: $font-size-sm;
-      font-weight: 600;
-      color: $text-primary;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      max-width: 200px;
-    }
-  }
-}
-
-// 图片区域（独立区块）
-.image-section {
-  position: relative;
-  padding: $spacing-md;
-  background: $bg-card;
-
-  .image-scroll {
-    display: flex;
-    gap: $spacing-sm;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-
-    &::-webkit-scrollbar {
-      display: none;
+    .images-counter {
+      position: absolute;
+      bottom: $spacing-sm;
+      right: $spacing-sm;
+      font-size: $font-size-xs;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 2px 8px;
+      border-radius: $radius-full;
+      z-index: 2;
     }
 
-    .image-thumb {
-      width: 72px;
-      height: 72px;
-      border-radius: $radius-md;
-      object-fit: cover;
-      flex-shrink: 0;
-      border: 2px solid $border-color-light;
-      cursor: pointer;
-      transition: transform $transition-fast;
+    &--empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: $spacing-sm;
+      background: $bg-card;
 
-      &:active {
-        transform: scale(0.9);
+      .empty-icon {
+        font-size: 32px;
+        opacity: 0.4;
+      }
+
+      .empty-text {
+        font-size: $font-size-sm;
+        color: $text-placeholder;
       }
     }
   }
 
-  .image-counter {
-    position: absolute;
-    right: $spacing-md;
-    top: $spacing-xs;
-    font-size: $font-size-xs;
-    color: $text-tertiary;
-    background: $bg-primary;
-    padding: 2px 8px;
-    border-radius: $radius-full;
+  // 右侧地图区
+  .hero-map-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+
+    .hero-map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .hero-location-badge {
+      position: absolute;
+      bottom: $spacing-sm;
+      left: $spacing-sm;
+      right: $spacing-sm;
+      z-index: 5;
+      display: flex;
+      align-items: center;
+      gap: $spacing-xs;
+      padding: $spacing-xs $spacing-md;
+      border-radius: $radius-full;
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: $shadow-sm;
+
+      .badge-icon {
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      .badge-name {
+        font-size: $font-size-sm;
+        font-weight: 600;
+        color: $text-primary;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
   }
 }
 
