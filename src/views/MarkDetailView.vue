@@ -13,18 +13,18 @@
 
     <!-- 上方左右分栏：左图片 + 右地图 -->
     <div class="hero-split">
-      <!-- 左侧图片区（支持纵向滑动） -->
+      <!-- 左侧图片区（Swipe 左右滑动切换） -->
       <div class="hero-images" v-if="mark.images.length > 0">
-        <div class="images-scroll">
-          <img
-            v-for="(img, index) in mark.images"
-            :key="index"
-            :src="img"
-            class="hero-img"
-            alt="打卡图片"
-            @click="previewImage(index)"
-          />
-        </div>
+        <van-swipe class="image-swipe" :autoplay="0" indicator-color="#fff" :loop="false">
+          <van-swipe-item v-for="(img, index) in mark.images" :key="index">
+            <img
+              :src="img"
+              class="swipe-img"
+              alt="打卡图片"
+              @click="previewImage(index)"
+            />
+          </van-swipe-item>
+        </van-swipe>
         <span v-if="mark.images.length > 1" class="images-counter">{{ mark.images.length }}张</span>
       </div>
       <!-- 无图片时占位 -->
@@ -33,9 +33,15 @@
         <span class="empty-text">暂无图片</span>
       </div>
 
-      <!-- 右侧地图区 -->
+      <!-- 右侧地图区（可交互，显示所有标记） -->
       <div class="hero-map-wrap">
-        <div class="hero-map" ref="miniMapEl"></div>
+        <MapView
+          ref="mapViewRef"
+          :center="{ lat: mark.lat, lng: mark.lng }"
+          :marks="markStore.marks"
+          :get-character="characterStore.getCharacterById"
+          @marker-click="onMarkerClick"
+        />
         <!-- 地点名称叠加 -->
         <div class="hero-location-badge">
           <span class="badge-icon">📍</span>
@@ -134,10 +140,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showImagePreview } from 'vant'
-import L from 'leaflet'
+import type { Mark } from '@/types'
+import MapView from '@/components/MapView.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 
@@ -146,8 +153,7 @@ const router = useRouter()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
 
-const miniMapEl = ref<HTMLElement | null>(null)
-let miniMap: L.Map | null = null
+const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const mark = computed(() => {
   const id = route.params.id as string
@@ -183,56 +189,17 @@ function previewImage(index: number) {
     images: mark.value.images,
     startPosition: index,
     closeable: true,
+    closeOnClickOverlay: true,
     closeOnPopstate: true,
   })
 }
 
-function initMiniMap() {
-  if (!miniMapEl.value || !mark.value) return
-
-  miniMap = L.map(miniMapEl.value, {
-    center: [mark.value.lat, mark.value.lng],
-    zoom: 16,
-    zoomControl: false,
-    attributionControl: false,
-    dragging: false,
-    touchZoom: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    boxZoom: false,
-    keyboard: false,
-  })
-
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    maxZoom: 20,
-    subdomains: 'abcd',
-  }).addTo(miniMap)
-
-  const icon = L.divIcon({
-    className: 'mini-map-marker',
-    html: `<div class="fumo-pin-marker" style="--pin-color: #D4CAF0; --pin-size: 24px;">
-      <div class="pin-head" style="width:24px;height:24px;border-radius:50%;border:2px solid #fff;background:#D4CAF0;display:flex;align-items:center;justify-content:center;">
-        <div style="width:14px;height:14px;border-radius:50%;background:#fff;"></div>
-      </div>
-      <div class="pin-tip"></div>
-    </div>`,
-    iconSize: [24, 36],
-    iconAnchor: [12, 36],
-  })
-
-  L.marker([mark.value.lat, mark.value.lng], { icon }).addTo(miniMap)
+function onMarkerClick(clickedMark: Mark) {
+  // 如果点击的是当前标记，不做操作
+  if (clickedMark.id === mark.value?.id) return
+  // 跳转到其他标记的详情页
+  router.push(`/mark/${clickedMark.id}`)
 }
-
-onMounted(() => {
-  setTimeout(initMiniMap, 100)
-})
-
-onUnmounted(() => {
-  if (miniMap) {
-    miniMap.remove()
-    miniMap = null
-  }
-})
 </script>
 
 <style lang="scss" scoped>
@@ -302,41 +269,28 @@ onUnmounted(() => {
     min-width: 0;
     background: $bg-card;
 
-    .images-scroll {
+    .image-swipe {
       width: 100%;
       height: 100%;
-      overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
 
-      &::-webkit-scrollbar {
-        width: 3px;
-      }
-      &::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.15);
-        border-radius: 4px;
+      :deep(.van-swipe-item) {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f5f5f5;
       }
 
-      .hero-img {
+      .swipe-img {
         width: 100%;
-        height: auto;
-        display: block;
+        height: 100%;
         object-fit: cover;
         cursor: pointer;
-        transition: opacity $transition-fast;
-
-        &:active {
-          opacity: 0.85;
-        }
-
-        & + .hero-img {
-          border-top: 2px solid $bg-primary;
-        }
       }
     }
 
     .images-counter {
       position: absolute;
-      bottom: $spacing-sm;
+      top: $spacing-sm;
       right: $spacing-sm;
       font-size: $font-size-xs;
       color: #fff;
@@ -372,17 +326,12 @@ onUnmounted(() => {
     flex: 1;
     min-width: 0;
 
-    .hero-map {
-      width: 100%;
-      height: 100%;
-    }
-
     .hero-location-badge {
       position: absolute;
       bottom: $spacing-sm;
       left: $spacing-sm;
       right: $spacing-sm;
-      z-index: 5;
+      z-index: 1000;
       display: flex;
       align-items: center;
       gap: $spacing-xs;
@@ -392,6 +341,7 @@ onUnmounted(() => {
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
       box-shadow: $shadow-sm;
+      pointer-events: none;
 
       .badge-icon {
         font-size: 14px;
