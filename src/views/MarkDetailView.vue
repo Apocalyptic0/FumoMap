@@ -251,8 +251,10 @@ function goToMap() {
 
 .mark-detail-view {
   width: 100%;
-  min-height: 100%;
+  height: 100vh;
   background: $bg-primary;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding-bottom: 72px;
 }
 

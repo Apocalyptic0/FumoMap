@@ -86,8 +86,13 @@ onMounted(async () => {
   const queryLat = Number(route.query.lat)
   const queryLng = Number(route.query.lng)
   if (queryLat && queryLng) {
-    // 飞到详情页标记的坐标
-    position.value = { lat: queryLat, lng: queryLng }
+    // 直接定位到标记坐标（不改变蓝点位置，不做飞行动画）
+    // 延迟一帧确保地图已初始化
+    setTimeout(() => {
+      mapViewRef.value?.setCenter({ lat: queryLat, lng: queryLng })
+    }, 50)
+    // 同时静默获取当前位置用于蓝点
+    locate()
   } else {
     await locate()
   }
