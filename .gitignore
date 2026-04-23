@@ -30,3 +30,6 @@ Desktop.ini
 fumomap.bundle
 fumomap.zip
 tsconfig.tsbuildinfo
+
+# Dev logs
+dev-logs/

@@ -15,6 +15,7 @@ declare module 'vue' {
     MarkerPopup: typeof import('./src/components/MarkerPopup.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchPanel: typeof import('./src/components/SearchPanel.vue')['default']
     VanButton: typeof import('vant/es')['Button']
     VanField: typeof import('vant/es')['Field']
     VanLoading: typeof import('vant/es')['Loading']

@@ -2,7 +2,7 @@
   <div class="create-view">
     <!-- 顶部导航栏 -->
     <van-nav-bar
-      title="新打卡"
+      :title="isEditMode ? '编辑打卡' : '新打卡'"
       left-arrow
       @click-left="router.back()"
       class="create-nav"
@@ -113,7 +113,7 @@
           :class="{ active: isFormValid, disabled: !isFormValid }"
           @click="handleSubmit"
         >
-          提交打卡
+          {{ isEditMode ? '保存修改' : '提交打卡' }}
         </button>
       </div>
     </div>
@@ -153,22 +153,50 @@ const showCharacterPicker = ref(false)
 const tagsInput = ref('')
 const showSuggestions = ref(true)
 
-// 从路由参数获取地图中心坐标
-const routeCenter: GeoPosition = route.query.lat && route.query.lng
-  ? { lat: parseFloat(route.query.lat as string), lng: parseFloat(route.query.lng as string) }
-  : { ...position.value }
+// 编辑模式检测
+const editId = route.query.edit as string | undefined
+const isEditMode = !!editId
+const existingMark = editId ? markStore.getMarkById(editId) : null
+
+// 从路由参数获取地图中心坐标，编辑模式下使用已有标记坐标
+const routeCenter: GeoPosition = (() => {
+  if (existingMark) {
+    return { lat: existingMark.lat, lng: existingMark.lng }
+  }
+  return route.query.lat && route.query.lng
+    ? { lat: parseFloat(route.query.lat as string), lng: parseFloat(route.query.lng as string) }
+    : { ...position.value }
+})()
 
 const selectedPosition = ref<GeoPosition>({ ...routeCenter })
 
-const form = ref<MarkFormData>({
-  characterIds: [],
-  lat: routeCenter.lat,
-  lng: routeCenter.lng,
-  locationName: '',
-  images: [],
-  description: '',
-  tags: [],
-})
+// 表单初始值：编辑模式用已有数据，否则空表单
+const form = ref<MarkFormData>(
+  existingMark
+    ? {
+        characterIds: [...existingMark.characterIds],
+        lat: existingMark.lat,
+        lng: existingMark.lng,
+        locationName: existingMark.locationName,
+        images: [...existingMark.images],
+        description: existingMark.description,
+        tags: [...existingMark.tags],
+      }
+    : {
+        characterIds: [],
+        lat: routeCenter.lat,
+        lng: routeCenter.lng,
+        locationName: '',
+        images: [],
+        description: '',
+        tags: [],
+      }
+)
+
+// 编辑模式下初始化标签输入
+if (existingMark && existingMark.tags.length > 0) {
+  tagsInput.value = existingMark.tags.join('，')
+}
 
 const isFormValid = computed(() => {
   return form.value.characterIds.length > 0 && form.value.locationName.trim() !== ''
@@ -227,13 +255,22 @@ function handleSubmit() {
       .filter(Boolean)
   }
 
-  const result = markStore.addMark(form.value)
-
-  if (result.success) {
-    showToast({ message: '打卡成功！', type: 'success' })
-    router.push('/')
+  if (isEditMode && editId) {
+    const result = markStore.updateMark(editId, form.value)
+    if (result.success) {
+      showToast({ message: '修改成功！', type: 'success' })
+      router.replace(`/mark/${editId}`)
+    } else {
+      showToast({ message: result.message, type: 'fail' })
+    }
   } else {
-    showToast({ message: result.message, type: 'fail' })
+    const result = markStore.addMark(form.value)
+    if (result.success) {
+      showToast({ message: '打卡成功！', type: 'success' })
+      router.push('/')
+    } else {
+      showToast({ message: result.message, type: 'fail' })
+    }
   }
 }
 

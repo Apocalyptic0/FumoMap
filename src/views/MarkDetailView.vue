@@ -139,17 +139,19 @@
 
     <!-- 底部操作栏 -->
     <div class="action-bar">
-      <button class="action-btn">
-        <span class="action-icon">♡</span>
-        <span class="action-label">点赞</span>
+      <button class="action-btn action-btn--edit" @click="editMark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+        </svg>
+        <span>编辑</span>
       </button>
-      <button class="action-btn">
-        <span class="action-icon">💬</span>
-        <span class="action-label">评论</span>
-      </button>
-      <button class="action-btn">
-        <span class="action-icon">☆</span>
-        <span class="action-label">收藏</span>
+      <button class="action-btn action-btn--delete" @click="deleteMark">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        <span>删除</span>
       </button>
     </div>
 
@@ -211,6 +213,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { showDialog, showToast } from 'vant'
 import type { Mark } from '@/types'
 import MapView from '@/components/MapView.vue'
 import { useMarkStore } from '@/stores/markStore'
@@ -302,6 +305,37 @@ function goToMap() {
     })
   } else {
     router.push('/')
+  }
+}
+
+/** 编辑打卡：跳转到创建页编辑模式 */
+function editMark() {
+  if (mark.value) {
+    router.push(`/create?edit=${mark.value.id}`)
+  }
+}
+
+/** 删除打卡 */
+async function deleteMark() {
+  if (!mark.value) return
+  try {
+    await showDialog({
+      title: '确认删除',
+      message: '删除后无法恢复，确定要删除这条打卡记录吗？',
+      showCancelButton: true,
+      confirmButtonText: '删除',
+      confirmButtonColor: '#ee0a24',
+      cancelButtonText: '取消',
+    })
+    const success = markStore.removeMark(mark.value.id)
+    if (success) {
+      showToast({ message: '已删除', type: 'success' })
+      router.replace('/')
+    } else {
+      showToast({ message: '删除失败', type: 'fail' })
+    }
+  } catch {
+    // 用户取消
   }
 }
 </script>
@@ -654,27 +688,38 @@ function goToMap() {
   .action-btn {
     flex: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 2px;
+    justify-content: center;
+    gap: 6px;
     border: none;
     background: none;
     cursor: pointer;
-    padding: $spacing-sm 0;
+    padding: $spacing-md;
+    font-size: $font-size-sm;
+    font-weight: 500;
+    transition: all $transition-fast;
 
-    .action-icon {
-      font-size: 22px;
-      color: $text-tertiary;
+    &--edit {
+      color: $color-primary;
+
+      &:hover {
+        background: rgba(156, 136, 255, 0.08);
+      }
+
+      &:active {
+        background: rgba(156, 136, 255, 0.15);
+      }
     }
 
-    .action-label {
-      font-size: $font-size-xs;
-      color: $text-tertiary;
-    }
+    &--delete {
+      color: #ee0a24;
 
-    &:active {
-      .action-icon {
-        transform: scale(1.2);
+      &:hover {
+        background: rgba(238, 10, 36, 0.06);
+      }
+
+      &:active {
+        background: rgba(238, 10, 36, 0.12);
       }
     }
   }

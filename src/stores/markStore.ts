@@ -82,6 +82,44 @@ export const useMarkStore = defineStore('mark', () => {
   }
 
   /**
+   * 更新标记
+   */
+  function updateMark(id: string, formData: MarkFormData): { success: boolean; message: string } {
+    const index = marks.value.findIndex((m) => m.id === id)
+    if (index === -1) return { success: false, message: '未找到该打卡记录' }
+
+    const oldMark = marks.value[index]
+
+    // 更新角色 markCount（先减旧的，再加新的）
+    const characterStore = useCharacterStore()
+    characterStore.decrementMarkCount(oldMark.characterIds)
+    characterStore.incrementMarkCount(formData.characterIds)
+
+    // 保留 id 和 createdAt，更新其余字段
+    marks.value[index] = {
+      ...oldMark,
+      characterIds: formData.characterIds,
+      lat: formData.lat,
+      lng: formData.lng,
+      locationName: formData.locationName,
+      images: formData.images,
+      description: formData.description,
+      tags: formData.tags,
+    }
+
+    const saved = syncToStorage()
+    if (!saved) {
+      // 回滚
+      marks.value[index] = oldMark
+      characterStore.decrementMarkCount(formData.characterIds)
+      characterStore.incrementMarkCount(oldMark.characterIds)
+      return { success: false, message: '保存失败，存储空间可能不足' }
+    }
+
+    return { success: true, message: '更新成功！' }
+  }
+
+  /**
    * 根据 ID 获取标记
    */
   function getMarkById(id: string): Mark | undefined {
@@ -105,6 +143,7 @@ export const useMarkStore = defineStore('mark', () => {
     markCount,
     addMark,
     removeMark,
+    updateMark,
     getMarkById,
   }
 })
