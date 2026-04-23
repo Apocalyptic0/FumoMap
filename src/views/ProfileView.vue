@@ -44,7 +44,7 @@
           <span class="stat-label">评论</span>
         </div>
         <div class="stat-item" @click="activeTab = 'history'">
-          <span class="stat-num">{{ interactionStore.viewHistoryList.length }}</span>
+          <span class="stat-num">{{ interactionStore.viewHistory.length }}</span>
           <span class="stat-label">浏览</span>
         </div>
       </div>
@@ -188,13 +188,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import MarkCard from '@/components/MarkCard.vue'
 import { useUserStore } from '@/stores/userStore'
 import { useMarkStore } from '@/stores/markStore'
 import { useInteractionStore } from '@/stores/interactionStore'
+import { formatRelativeTime } from '@/utils/formatTime'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -217,6 +218,14 @@ const showEditDialog = ref(false)
 const editNickname = ref(currentUser.value.nickname)
 const editBio = ref(currentUser.value.bio)
 
+// 弹窗打开时重新读取最新用户数据，避免显示过时内容
+watch(showEditDialog, (visible) => {
+  if (visible) {
+    editNickname.value = currentUser.value.nickname
+    editBio.value = currentUser.value.bio
+  }
+})
+
 /** 收藏的打卡列表 */
 const favMarks = computed(() =>
   interactionStore.favoriteList
@@ -226,7 +235,7 @@ const favMarks = computed(() =>
 
 /** 浏览历史对应的打卡列表 */
 const historyMarks = computed(() =>
-  interactionStore.viewHistoryList
+  interactionStore.viewHistory
     .map((v) => {
       const mark = markStore.getMarkById(v.markId)
       return mark ? { mark, viewedAt: v.viewedAt } : null
@@ -240,21 +249,7 @@ function getMarkName(markId: string): string {
 }
 
 function formatTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 7) return `${days}天前`
-
-  return new Date(timestamp).toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatRelativeTime(timestamp, 7)
 }
 
 function goToMark(id: string) {

@@ -324,16 +324,16 @@ function formatTime(timestamp: number): string {
 
 function handleLike() {
   if (!mark.value) return
+  const wasLiked = liked.value
   interactionStore.toggleLike(mark.value.id)
+  showToast({ message: wasLiked ? '已取消点赞' : '已点赞', type: 'success' })
 }
 
 function handleFavorite() {
   if (!mark.value) return
+  const wasFavorited = favorited.value
   interactionStore.toggleFavorite(mark.value.id)
-  showToast({
-    message: favorited.value ? '已取消收藏' : '已收藏',
-    type: 'success',
-  })
+  showToast({ message: wasFavorited ? '已取消收藏' : '已收藏', type: 'success' })
 }
 
 function toggleComments() {

@@ -61,6 +61,7 @@ import { computed } from 'vue'
 import type { Mark } from '@/types'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useInteractionStore } from '@/stores/interactionStore'
+import { formatCardTime } from '@/utils/formatTime'
 
 const props = withDefaults(defineProps<{
   mark: Mark
@@ -86,21 +87,6 @@ const displayCharacters = computed(() =>
 )
 
 const commentCount = computed(() => interactionStore.getCommentCount(props.mark.id))
-
-function formatCardTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const days = Math.floor(diff / 86400000)
-
-  if (days < 1) return '今天'
-  if (days < 2) return '昨天'
-  if (days < 7) return `${days}天前`
-
-  return new Date(timestamp).toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  })
-}
 </script>
 
 <style lang="scss" scoped>
@@ -178,7 +164,6 @@ function formatCardTime(timestamp: number): string {
   .card-characters {
     display: flex;
     align-items: center;
-    gap: -4px;
 
     .card-char-avatar {
       width: 22px;

@@ -66,6 +66,7 @@ import { ref, computed, nextTick } from 'vue'
 import { showToast } from 'vant'
 import { useUserStore } from '@/stores/userStore'
 import { useInteractionStore } from '@/stores/interactionStore'
+import { formatRelativeTime } from '@/utils/formatTime'
 
 const props = defineProps<{
   markId: string
@@ -88,7 +89,7 @@ function getUserName(userId: string): string {
 
 /** 根据 userId 获取头像 */
 function getUserAvatar(userId: string): string {
-  if (userId === currentUser.id) return currentUser.value.avatarUrl
+  if (userId === currentUser.value.id) return currentUser.value.avatarUrl
   return currentUser.value.avatarUrl // P0: 暂用默认头像
 }
 
@@ -122,22 +123,9 @@ function handleDelete(commentId: string) {
   showToast({ message: '已删除', type: 'success' })
 }
 
+/** 评论时间格式化（30天阈值） */
 function formatCommentTime(timestamp: number): string {
-  const now = Date.now()
-  const diff = now - timestamp
-  const minutes = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days = Math.floor(diff / 86400000)
-
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  if (hours < 24) return `${hours}小时前`
-  if (days < 30) return `${days}天前`
-
-  return new Date(timestamp).toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-  })
+  return formatRelativeTime(timestamp, 30)
 }
 
 /** 聚焦输入框（供父组件调用） */

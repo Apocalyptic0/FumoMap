@@ -146,9 +146,18 @@ export const useInteractionStore = defineStore('interaction', () => {
       .sort((a, b) => a.createdAt - b.createdAt)
   }
 
+  /** 评论数索引（避免 getCommentCount 每次 O(n) 遍历） */
+  const commentCountMap = computed(() => {
+    const map = new Map<string, number>()
+    comments.value.forEach((c) => {
+      map.set(c.markId, (map.get(c.markId) ?? 0) + 1)
+    })
+    return map
+  })
+
   /** 获取某个打卡的评论数 */
   function getCommentCount(markId: string): number {
-    return comments.value.filter((c) => c.markId === markId).length
+    return commentCountMap.value.get(markId) ?? 0
   }
 
   /** 获取当前用户的所有评论（按时间倒序） */
@@ -210,8 +219,8 @@ export const useInteractionStore = defineStore('interaction', () => {
     syncViewHistory()
   }
 
-  /** 浏览记录列表（已按时间倒序） */
-  const viewHistoryList = computed(() => viewHistory.value)
+  /** 浏览记录列表（已按时间倒序，直接暴露 ref） */
+  // viewHistory 已在 addViewRecord 中维护倒序，无需额外 computed
 
   // ========== 清理：删除打卡时清理关联互动数据 ==========
 
@@ -244,7 +253,7 @@ export const useInteractionStore = defineStore('interaction', () => {
     favoriteList,
     // 浏览
     addViewRecord,
-    viewHistoryList,
+    viewHistory,
     // 清理
     cleanupForMark,
   }
