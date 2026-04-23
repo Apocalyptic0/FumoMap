@@ -31,8 +31,13 @@
           </svg>
         </button>
       </div>
-      <!-- 角色筛选按钮 -->
+      <!-- 取消按钮（搜索面板打开时显示） -->
+      <button v-if="showSearchPanel" class="cancel-btn" @click="closeSearchPanel">
+        取消
+      </button>
+      <!-- 角色筛选按钮（搜索面板关闭时显示） -->
       <button
+        v-else
         class="filter-btn"
         :class="{ active: filterCharId }"
         @click="onFilterClick"
@@ -83,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, provide, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { DEFAULT_CENTER } from '@/types'
 import type { Mark, GeoPosition, Character } from '@/types'
@@ -196,7 +201,16 @@ function clearSearch() {
 
 function closeSearchPanel() {
   showSearchPanel.value = false
+  searchKeyword.value = ''
+  filterCharId.value = null
   searchInputRef.value?.blur()
+}
+
+// Esc 键关闭搜索面板
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && showSearchPanel.value) {
+    closeSearchPanel()
+  }
 }
 
 function onSearchResultSelect(mark: Mark) {
@@ -253,6 +267,12 @@ onMounted(async () => {
     const pos = await locate()
     displayCenter.value = pos
   }
+
+  document.addEventListener('keydown', onKeydown)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', onKeydown)
 })
 </script>
 
@@ -292,6 +312,27 @@ onMounted(async () => {
   &:hover {
     background: $border-color-light;
     color: $text-secondary;
+  }
+}
+
+// 取消按钮
+.cancel-btn {
+  border: none;
+  background: none;
+  color: $color-primary;
+  font-size: $font-size-sm;
+  font-weight: 500;
+  cursor: pointer;
+  padding: $spacing-xs $spacing-sm;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  &:hover {
+    opacity: 0.8;
+  }
+
+  &:active {
+    opacity: 0.6;
   }
 }
 
