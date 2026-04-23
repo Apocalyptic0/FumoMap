@@ -8,15 +8,16 @@
     <div class="comment-input-wrap">
       <img :src="currentUser.avatarUrl" class="input-avatar" alt="我的头像" />
       <div class="input-box">
-        <input
+        <textarea
           ref="inputRef"
           v-model="inputContent"
           class="comment-input"
-          type="text"
           placeholder="说点什么..."
-          maxlength="200"
-          @keydown.enter="handleSend"
-        />
+          maxlength="500"
+          rows="1"
+          @input="autoResize"
+          @keydown.enter.exact="handleSend"
+        ></textarea>
         <button
           class="send-btn"
           :class="{ active: inputContent.trim() }"
@@ -31,11 +32,11 @@
     <!-- 评论列表 -->
     <div class="comment-list" v-if="comments.length > 0">
       <div v-for="comment in comments" :key="comment.id" class="comment-item">
-        <img :src="currentUser.avatarUrl" class="comment-avatar" alt="头像" />
+        <img :src="getUserAvatar(comment.userId)" class="comment-avatar" alt="头像" />
         <div class="comment-body">
           <div class="comment-meta">
             <span class="comment-author">
-              {{ currentUser.nickname }}
+              {{ getUserName(comment.userId) }}
               <span v-if="comment.userId === currentUser.id" class="my-tag">我</span>
             </span>
             <span class="comment-time">{{ formatCommentTime(comment.createdAt) }}</span>
@@ -61,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { showToast } from 'vant'
 import { useUserStore } from '@/stores/userStore'
 import { useInteractionStore } from '@/stores/interactionStore'
@@ -73,11 +74,31 @@ const props = defineProps<{
 const userStore = useUserStore()
 const interactionStore = useInteractionStore()
 
-const inputRef = ref<HTMLInputElement | null>(null)
+const inputRef = ref<HTMLTextAreaElement | null>(null)
 const inputContent = ref('')
 
 const currentUser = computed(() => userStore.currentUser)
 const comments = computed(() => interactionStore.getComments(props.markId))
+
+/** 根据 userId 获取昵称（P0 全部是本地用户，P1 从用户缓存查） */
+function getUserName(userId: string): string {
+  if (userId === currentUser.value.id) return currentUser.value.nickname
+  return '旅行者' // P1: 从用户缓存中查询
+}
+
+/** 根据 userId 获取头像 */
+function getUserAvatar(userId: string): string {
+  if (userId === currentUser.id) return currentUser.value.avatarUrl
+  return currentUser.value.avatarUrl // P0: 暂用默认头像
+}
+
+/** textarea 自动高度 */
+function autoResize() {
+  const el = inputRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+}
 
 function handleSend() {
   const content = inputContent.value.trim()
@@ -86,6 +107,12 @@ function handleSend() {
   const result = interactionStore.addComment(props.markId, content)
   if (result) {
     inputContent.value = ''
+    // 重置 textarea 高度
+    nextTick(() => {
+      if (inputRef.value) {
+        inputRef.value.style.height = 'auto'
+      }
+    })
     showToast({ message: '评论成功', type: 'success' })
   }
 }
@@ -178,6 +205,10 @@ defineExpose({ focusInput })
       color: $text-primary;
       background: transparent;
       line-height: 1.5;
+      resize: none;
+      max-height: 120px;
+      overflow-y: auto;
+      font-family: inherit;
 
       &::placeholder {
         color: $text-placeholder;

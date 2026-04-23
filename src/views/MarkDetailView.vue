@@ -135,14 +135,12 @@
           {{ tag }}
         </div>
       </div>
-    </div>
 
-    <!-- 评论区域 -->
-    <CommentSection
-      v-if="showComments"
-      ref="commentSectionRef"
-      :mark-id="mark.id"
-    />
+      <!-- 评论区 -->
+      <CommentSection
+        :mark-id="mark.id"
+      />
+    </div>
 
     <!-- 底部操作栏 -->
     <div class="action-bar">
@@ -160,7 +158,6 @@
 
       <button
         class="action-btn action-btn--comment"
-        :class="{ active: showComments }"
         @click="toggleComments"
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -269,15 +266,11 @@ const characterStore = useCharacterStore()
 const interactionStore = useInteractionStore()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
-const commentSectionRef = ref<InstanceType<typeof CommentSection> | null>(null)
 const currentImageIndex = ref(0)
 
 // 自定义全屏图片预览状态
 const previewVisible = ref(false)
 const previewIndex = ref(0)
-
-// 互动状态
-const showComments = ref(false)
 
 const mark = computed(() => {
   const id = route.params.id as string
@@ -291,7 +284,6 @@ const commentCount = computed(() => mark.value ? interactionStore.getCommentCoun
 // 切换标记时重置状态
 watch(() => route.params.id, () => {
   currentImageIndex.value = 0
-  showComments.value = false
   // 记录浏览历史
   if (route.params.id) {
     interactionStore.addViewRecord(route.params.id as string)
@@ -345,10 +337,10 @@ function handleFavorite() {
 }
 
 function toggleComments() {
-  showComments.value = !showComments.value
-  if (showComments.value) {
-    // 等评论区渲染后聚焦输入框
-    setTimeout(() => commentSectionRef.value?.focusInput(), 100)
+  // 滚动到评论区
+  const el = document.querySelector('.comment-section')
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 }
 
