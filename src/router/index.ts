@@ -18,6 +18,11 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/MarkDetailView.vue'),
     props: true,
   },
+  {
+    path: '/profile',
+    name: 'Profile',
+    component: () => import('@/views/ProfileView.vue'),
+  },
 ]
 
 const router = createRouter({

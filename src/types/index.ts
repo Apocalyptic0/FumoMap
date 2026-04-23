@@ -20,6 +20,9 @@ export interface Mark {
   description: string
   tags: string[]
   createdAt: number       // 时间戳
+  // --- 互动字段（P0 本地计数，P1 迁移到服务端聚合） ---
+  likeCount: number       // 点赞数
+  likedBy: string[]       // 点赞用户 ID 列表
 }
 
 /** 创建标记表单数据 */
@@ -37,6 +40,54 @@ export interface MarkFormData {
 export interface GeoPosition {
   lat: number
   lng: number
+}
+
+// =============================
+// 用户 & 互动模型（P0 本地 → P1 接入云端）
+// =============================
+
+/**
+ * 本地用户
+ * P1 迁移时：id 替换为服务端 UID，avatarUrl 换为 CDN URL
+ */
+export interface LocalUser {
+  id: string
+  nickname: string
+  avatarUrl: string
+  bio: string
+  createdAt: number
+}
+
+/** 评论 */
+export interface Comment {
+  id: string
+  markId: string
+  userId: string
+  content: string
+  createdAt: number
+}
+
+/** 浏览记录 */
+export interface ViewRecord {
+  markId: string
+  viewedAt: number
+}
+
+/** 收藏记录 */
+export interface FavoriteRecord {
+  markId: string
+  createdAt: number
+}
+
+/**
+ * 互动数据汇总（用于列表卡片展示）
+ * P1 接入服务端后可由 API 直接返回
+ */
+export interface InteractionSummary {
+  likeCount: number
+  commentCount: number
+  isLiked: boolean
+  isFavorited: boolean
 }
 
 /** 默认地图中心：深圳（方便国内测试） */

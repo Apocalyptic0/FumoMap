@@ -137,21 +137,62 @@
       </div>
     </div>
 
+    <!-- 评论区域 -->
+    <CommentSection
+      v-if="showComments"
+      ref="commentSectionRef"
+      :mark-id="mark.id"
+    />
+
     <!-- 底部操作栏 -->
     <div class="action-bar">
-      <button class="action-btn action-btn--edit" @click="editMark">
+      <!-- 互动区 -->
+      <button
+        class="action-btn action-btn--like"
+        :class="{ liked: liked }"
+        @click="handleLike"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" :fill="liked ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+        </svg>
+        <span>{{ mark.likeCount || '' }}</span>
+      </button>
+
+      <button
+        class="action-btn action-btn--comment"
+        :class="{ active: showComments }"
+        @click="toggleComments"
+      >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>{{ commentCount || '' }}</span>
+      </button>
+
+      <button
+        class="action-btn action-btn--fav"
+        :class="{ favorited: favorited }"
+        @click="handleFavorite"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" :fill="favorited ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+        </svg>
+      </button>
+
+      <div class="action-divider"></div>
+
+      <!-- 管理区 -->
+      <button class="action-btn action-btn--edit" @click="editMark">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
         </svg>
-        <span>编辑</span>
       </button>
       <button class="action-btn action-btn--delete" @click="deleteMark">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
         </svg>
-        <span>删除</span>
       </button>
     </div>
 
@@ -211,34 +252,57 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { showDialog, showToast } from 'vant'
 import type { Mark } from '@/types'
 import MapView from '@/components/MapView.vue'
+import CommentSection from '@/components/CommentSection.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
+import { useInteractionStore } from '@/stores/interactionStore'
 
 const route = useRoute()
 const router = useRouter()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
+const interactionStore = useInteractionStore()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
+const commentSectionRef = ref<InstanceType<typeof CommentSection> | null>(null)
 const currentImageIndex = ref(0)
 
 // 自定义全屏图片预览状态
 const previewVisible = ref(false)
 const previewIndex = ref(0)
 
+// 互动状态
+const showComments = ref(false)
+
 const mark = computed(() => {
   const id = route.params.id as string
   return markStore.getMarkById(id) ?? null
 })
 
-// 切换标记时重置图片索引
+const liked = computed(() => mark.value ? interactionStore.isLiked(mark.value.id) : false)
+const favorited = computed(() => mark.value ? interactionStore.isFavorited(mark.value.id) : false)
+const commentCount = computed(() => mark.value ? interactionStore.getCommentCount(mark.value.id) : 0)
+
+// 切换标记时重置状态
 watch(() => route.params.id, () => {
   currentImageIndex.value = 0
+  showComments.value = false
+  // 记录浏览历史
+  if (route.params.id) {
+    interactionStore.addViewRecord(route.params.id as string)
+  }
+})
+
+// 首次进入记录浏览
+onMounted(() => {
+  if (mark.value) {
+    interactionStore.addViewRecord(mark.value.id)
+  }
 })
 
 const primaryCharacter = computed(() => {
@@ -263,6 +327,32 @@ function formatTime(timestamp: number): string {
     minute: '2-digit',
   })
 }
+
+// --- 互动操作 ---
+
+function handleLike() {
+  if (!mark.value) return
+  interactionStore.toggleLike(mark.value.id)
+}
+
+function handleFavorite() {
+  if (!mark.value) return
+  interactionStore.toggleFavorite(mark.value.id)
+  showToast({
+    message: favorited.value ? '已取消收藏' : '已收藏',
+    type: 'success',
+  })
+}
+
+function toggleComments() {
+  showComments.value = !showComments.value
+  if (showComments.value) {
+    // 等评论区渲染后聚焦输入框
+    setTimeout(() => commentSectionRef.value?.focusInput(), 100)
+  }
+}
+
+// --- 图片预览 ---
 
 function previewImage(index: number) {
   if (!mark.value) return
@@ -328,6 +418,8 @@ async function deleteMark() {
       confirmButtonColor: '#ee0a24',
       cancelButtonText: '取消',
     })
+    // 清理关联互动数据
+    interactionStore.cleanupForMark(markId)
     // 先跳转再删除，避免 mark 变 null 导致白屏
     await router.replace('/')
     markStore.removeMark(markId)
@@ -682,44 +774,78 @@ async function deleteMark() {
   display: flex;
   align-items: center;
   z-index: 100;
+  padding: 0 $spacing-sm;
 
   .action-btn {
-    flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    gap: 4px;
     border: none;
     background: none;
     cursor: pointer;
-    padding: $spacing-md;
-    font-size: $font-size-sm;
+    padding: $spacing-sm $spacing-md;
+    font-size: $font-size-xs;
     font-weight: 500;
     transition: all $transition-fast;
+    color: $text-tertiary;
+    border-radius: $radius-sm;
 
-    &--edit {
-      color: $color-primary;
+    &:active {
+      transform: scale(0.92);
+    }
 
-      &:hover {
-        background: rgba(156, 136, 255, 0.08);
+    &--like {
+      &.liked {
+        color: #ee4466;
       }
 
-      &:active {
-        background: rgba(156, 136, 255, 0.15);
+      &:hover {
+        color: #ee4466;
+      }
+    }
+
+    &--comment {
+      &.active {
+        color: $color-primary-dark;
+      }
+
+      &:hover {
+        color: $color-primary;
+      }
+    }
+
+    &--fav {
+      &.favorited {
+        color: #f5a623;
+      }
+
+      &:hover {
+        color: #f5a623;
+      }
+    }
+
+    &--edit {
+      color: $text-tertiary;
+
+      &:hover {
+        color: $color-primary;
+        background: rgba(156, 136, 255, 0.08);
       }
     }
 
     &--delete {
-      color: #ee0a24;
+      color: $text-tertiary;
 
       &:hover {
+        color: #ee0a24;
         background: rgba(238, 10, 36, 0.06);
       }
-
-      &:active {
-        background: rgba(238, 10, 36, 0.12);
-      }
     }
+  }
+
+  .action-divider {
+    flex: 1;
   }
 }
 

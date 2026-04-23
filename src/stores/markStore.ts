@@ -11,11 +11,16 @@ export const useMarkStore = defineStore('mark', () => {
 
   /**
    * 初始化：从 localStorage 加载标记数据
+   * 兼容旧数据：为缺少互动字段的 Mark 补充默认值
    */
   function init() {
     const saved = getItem<Mark[]>(STORAGE_KEY)
     if (saved && Array.isArray(saved)) {
-      marks.value = saved
+      marks.value = saved.map((m) => ({
+        ...m,
+        likeCount: m.likeCount ?? 0,
+        likedBy: m.likedBy ?? [],
+      }))
     }
   }
 
@@ -45,6 +50,8 @@ export const useMarkStore = defineStore('mark', () => {
       description: formData.description,
       tags: formData.tags,
       createdAt: Date.now(),
+      likeCount: 0,
+      likedBy: [],
     }
 
     marks.value.push(newMark)
@@ -95,7 +102,7 @@ export const useMarkStore = defineStore('mark', () => {
     characterStore.decrementMarkCount(oldMark.characterIds)
     characterStore.incrementMarkCount(formData.characterIds)
 
-    // 保留 id 和 createdAt，更新其余字段
+    // 保留 id、createdAt 和互动字段，更新其余字段
     marks.value[index] = {
       ...oldMark,
       characterIds: formData.characterIds,
@@ -145,6 +152,7 @@ export const useMarkStore = defineStore('mark', () => {
     removeMark,
     updateMark,
     getMarkById,
+    syncToStorage,
   }
 })
 

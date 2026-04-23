@@ -13,6 +13,11 @@
 
     <!-- 顶部搜索栏（z-index 高于搜索面板） -->
     <div class="map-search-bar glass-effect">
+      <!-- 用户头像入口 -->
+      <button class="profile-btn" @click="goToProfile" title="个人主页">
+        <img :src="userStore.currentUser.avatarUrl" class="profile-avatar" alt="我的头像" />
+      </button>
+
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
         <input
@@ -113,7 +118,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { DEFAULT_CENTER } from '@/types'
 import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
@@ -122,11 +127,14 @@ import FumoFab from '@/components/FumoFab.vue'
 import SearchPanel from '@/components/SearchPanel.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
+import { useUserStore } from '@/stores/userStore'
 import { useGeolocation } from '@/composables/useGeolocation'
 
 const route = useRoute()
+const router = useRouter()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
+const userStore = useUserStore()
 const { position, loading: geoLoading, error: geoError, locate } = useGeolocation()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
@@ -244,6 +252,10 @@ function clearFilter() {
   filterCharIds.value = []
 }
 
+function goToProfile() {
+  router.push('/profile')
+}
+
 // --- 地图交互 ---
 
 function onMarkerClick(mark: Mark) {
@@ -300,6 +312,36 @@ onUnmounted(() => {
 .search-wrapper {
   position: relative;
   flex: 1;
+}
+
+// 用户头像入口
+.profile-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: $radius-full;
+  border: 2px solid $color-primary-light;
+  background: $bg-card;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: all $transition-fast;
+
+  .profile-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: $radius-full;
+  }
+
+  &:active {
+    transform: scale(0.9);
+  }
+
+  &:hover {
+    border-color: $color-primary;
+    box-shadow: $shadow-sm;
+  }
 }
 
 .search-clear {

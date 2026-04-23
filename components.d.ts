@@ -8,10 +8,12 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     CharacterPicker: typeof import('./src/components/CharacterPicker.vue')['default']
+    CommentSection: typeof import('./src/components/CommentSection.vue')['default']
     FumoFab: typeof import('./src/components/FumoFab.vue')['default']
     ImageCarousel: typeof import('./src/components/ImageCarousel.vue')['default']
     ImageUploader: typeof import('./src/components/ImageUploader.vue')['default']
     MapView: typeof import('./src/components/MapView.vue')['default']
+    MarkCard: typeof import('./src/components/MarkCard.vue')['default']
     MarkerPopup: typeof import('./src/components/MarkerPopup.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
