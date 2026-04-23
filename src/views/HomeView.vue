@@ -12,7 +12,7 @@
     />
 
     <!-- 顶部搜索栏（z-index 高于搜索面板） -->
-    <div class="map-search-bar glass-effect" :class="{ 'search-bar--active': showSearchPanel }">
+    <div class="map-search-bar glass-effect">
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
         <input
@@ -35,35 +35,59 @@
       <button v-if="showSearchPanel" class="cancel-btn" @click="closeSearchPanel">
         取消
       </button>
-      <!-- 角色筛选按钮（搜索面板关闭时显示） -->
+      <!-- 角色筛选按钮 -->
       <button
         v-else
         class="filter-btn"
-        :class="{ active: filterCharId }"
-        @click="onFilterClick"
+        :class="{ active: filterCharIds.length > 0, 'filter-open': showFilterPanel }"
+        @click="toggleFilterPanel"
         title="角色筛选"
       >
-        <img
-          v-if="filterCharId"
-          :src="filterCharAvatar"
-          class="filter-btn-avatar"
-          alt=""
-        />
+        <span v-if="filterCharIds.length > 0" class="filter-badge">{{ filterCharIds.length }}</span>
         <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
         </svg>
       </button>
     </div>
 
+    <!-- 角色筛选下拉面板（独立于搜索面板） -->
+    <transition name="filter-drop">
+      <div v-if="showFilterPanel" class="filter-panel glass-effect">
+        <div class="filter-panel-header">
+          <span class="filter-panel-title">按角色筛选</span>
+          <button v-if="filterCharIds.length > 0" class="filter-clear-btn" @click="clearFilter">
+            清除筛选
+          </button>
+        </div>
+        <div class="filter-chip-list">
+          <button
+            v-for="char in charactersWithMarks"
+            :key="char.id"
+            class="filter-chip"
+            :class="{ active: filterCharIds.includes(char.id) }"
+            @click="toggleCharFilter(char.id)"
+          >
+            <img :src="char.avatarUrl" :alt="char.name" class="chip-avatar" />
+            <span>{{ char.name }}</span>
+            <svg v-if="filterCharIds.includes(char.id)" class="chip-check" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </transition>
+
+    <!-- 筛选面板遮罩 -->
+    <transition name="fade">
+      <div v-if="showFilterPanel" class="filter-overlay" @click="showFilterPanel = false"></div>
+    </transition>
+
     <!-- 搜索面板（从搜索栏下方开始） -->
     <SearchPanel
       :visible="showSearchPanel"
       :results="searchResults"
-      :characters="charactersWithMarks"
-      :filter-char-id="filterCharId"
       @close="closeSearchPanel"
       @select="onSearchResultSelect"
-      @filter="onFilterChar"
     />
 
     <!-- 标记信息弹窗 -->
@@ -91,7 +115,7 @@
 import { ref, computed, onMounted, onUnmounted, provide, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { DEFAULT_CENTER } from '@/types'
-import type { Mark, GeoPosition, Character } from '@/types'
+import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
 import MarkerPopup from '@/components/MarkerPopup.vue'
 import FumoFab from '@/components/FumoFab.vue'
@@ -112,7 +136,8 @@ const selectedMark = ref<Mark | null>(null)
 // 搜索与筛选状态
 const searchKeyword = ref('')
 const showSearchPanel = ref(false)
-const filterCharId = ref<string | null>(null)
+const showFilterPanel = ref(false)
+const filterCharIds = ref<string[]>([])
 
 // 地图中心：独立于定位坐标，避免 locate() 完成后自动飞回
 const displayCenter = ref<GeoPosition>({ ...DEFAULT_CENTER })
@@ -123,13 +148,7 @@ provide('mapCenter', mapCenter)
 
 // --- 搜索与过滤逻辑 ---
 
-/** 角色筛选按钮的头像 */
-const filterCharAvatar = computed(() => {
-  if (!filterCharId.value) return ''
-  return characterStore.getCharacterById(filterCharId.value)?.avatarUrl || ''
-})
-
-/** 有打卡记录的角色列表（用于筛选条） */
+/** 有打卡记录的角色列表（用于筛选面板） */
 const charactersWithMarks = computed(() => {
   const charIdsWithMarks = new Set<string>()
   markStore.marks.forEach((m) => m.characterIds.forEach((id) => charIdsWithMarks.add(id)))
@@ -140,22 +159,13 @@ const charactersWithMarks = computed(() => {
 const searchResults = computed(() => {
   let results = markStore.marks
 
-  // 角色筛选
-  if (filterCharId.value) {
-    results = results.filter((m) => m.characterIds.includes(filterCharId.value!))
-  }
-
   // 关键词搜索
   const kw = searchKeyword.value.toLowerCase().trim()
   if (kw) {
     results = results.filter((m) => {
-      // 地点名匹配
       if (m.locationName.toLowerCase().includes(kw)) return true
-      // 描述匹配
       if (m.description.toLowerCase().includes(kw)) return true
-      // 标签匹配
       if (m.tags.some((t) => t.toLowerCase().includes(kw))) return true
-      // 角色名匹配
       return m.characterIds.some((id) => {
         const char = characterStore.getCharacterById(id)
         return (
@@ -167,19 +177,15 @@ const searchResults = computed(() => {
     })
   }
 
-  // 按时间倒序
   return [...results].sort((a, b) => b.createdAt - a.createdAt)
 })
 
-/** 传给 MapView 的标记：受搜索和角色筛选影响 */
+/** 传给 MapView 的标记：受角色筛选影响 */
 const filteredMarks = computed(() => {
-  // 当搜索面板打开且有关键词/角色筛选时，只显示匹配的标记
-  if (showSearchPanel.value && (searchKeyword.value.trim() || filterCharId.value)) {
-    return searchResults.value
-  }
-  // 角色筛选独立于搜索面板也生效
-  if (filterCharId.value && !showSearchPanel.value) {
-    return markStore.marks.filter((m) => m.characterIds.includes(filterCharId.value!))
+  if (filterCharIds.value.length > 0) {
+    return markStore.marks.filter((m) =>
+      m.characterIds.some((id) => filterCharIds.value.includes(id))
+    )
   }
   return markStore.marks
 })
@@ -202,19 +208,18 @@ function clearSearch() {
 function closeSearchPanel() {
   showSearchPanel.value = false
   searchKeyword.value = ''
-  filterCharId.value = null
   searchInputRef.value?.blur()
 }
 
-// Esc 键关闭搜索面板
+// Esc 键关闭面板
 function onKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && showSearchPanel.value) {
-    closeSearchPanel()
+  if (e.key === 'Escape') {
+    if (showSearchPanel.value) closeSearchPanel()
+    if (showFilterPanel.value) showFilterPanel.value = false
   }
 }
 
 function onSearchResultSelect(mark: Mark) {
-  // 关闭面板，选中标记，地图飞到该标记
   showSearchPanel.value = false
   searchKeyword.value = ''
   selectedMark.value = mark
@@ -222,16 +227,21 @@ function onSearchResultSelect(mark: Mark) {
   mapViewRef.value?.flyTo({ lat: mark.lat, lng: mark.lng })
 }
 
-function onFilterClick() {
-  // 切换搜索面板并聚焦
-  showSearchPanel.value = !showSearchPanel.value
-  if (showSearchPanel.value) {
-    setTimeout(() => searchInputRef.value?.focus(), 100)
+function toggleFilterPanel() {
+  showFilterPanel.value = !showFilterPanel.value
+}
+
+function toggleCharFilter(charId: string) {
+  const idx = filterCharIds.value.indexOf(charId)
+  if (idx >= 0) {
+    filterCharIds.value.splice(idx, 1)
+  } else {
+    filterCharIds.value.push(charId)
   }
 }
 
-function onFilterChar(charId: string | null) {
-  filterCharId.value = charId
+function clearFilter() {
+  filterCharIds.value = []
 }
 
 // --- 地图交互 ---
@@ -350,6 +360,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   color: $text-tertiary;
   transition: all $transition-fast;
+  position: relative;
 
   &.active {
     border-color: $color-primary;
@@ -357,17 +368,137 @@ onUnmounted(() => {
     color: $color-primary-dark;
   }
 
+  &.filter-open {
+    border-color: $color-primary;
+    color: $color-primary;
+  }
+
   &:hover:not(.active) {
     border-color: $color-primary;
     color: $color-primary;
   }
 
-  .filter-btn-avatar {
-    width: 26px;
-    height: 26px;
-    border-radius: $radius-full;
-    object-fit: cover;
+  .filter-badge {
+    font-size: 13px;
+    font-weight: 700;
+    color: $color-primary-dark;
   }
+}
+
+// 角色筛选下拉面板
+.filter-panel {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  right: $spacing-lg;
+  z-index: 1200;
+  width: 280px;
+  max-height: 360px;
+  border-radius: $radius-lg;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .filter-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: $spacing-md $spacing-lg;
+    border-bottom: 1px solid $divider-color;
+
+    .filter-panel-title {
+      font-size: $font-size-sm;
+      font-weight: 600;
+      color: $text-primary;
+    }
+
+    .filter-clear-btn {
+      border: none;
+      background: none;
+      color: $color-primary;
+      font-size: $font-size-xs;
+      cursor: pointer;
+      padding: 2px 4px;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .filter-chip-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: $spacing-sm;
+    display: flex;
+    flex-wrap: wrap;
+    gap: $spacing-xs;
+    align-content: flex-start;
+
+    .filter-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      border-radius: $radius-full;
+      border: 1.5px solid $border-color;
+      background: $bg-card;
+      font-size: $font-size-xs;
+      color: $text-secondary;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all $transition-fast;
+
+      .chip-avatar {
+        width: 20px;
+        height: 20px;
+        border-radius: $radius-full;
+        object-fit: cover;
+      }
+
+      .chip-check {
+        color: $color-primary-dark;
+        flex-shrink: 0;
+      }
+
+      &.active {
+        border-color: $color-primary;
+        background: $color-primary-light;
+        color: $color-primary-dark;
+      }
+
+      &:hover:not(.active) {
+        border-color: $color-primary;
+      }
+    }
+  }
+}
+
+// 筛选面板遮罩
+.filter-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1150;
+  background: transparent;
+}
+
+// 筛选面板动画
+.filter-drop-enter-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.filter-drop-leave-active {
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+.filter-drop-enter-from {
+  transform: translateY(-8px);
+  opacity: 0;
+}
+.filter-drop-leave-to {
+  transform: translateY(-8px);
+  opacity: 0;
 }
 
 .locate-loading {

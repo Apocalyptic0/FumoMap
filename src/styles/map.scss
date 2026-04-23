@@ -37,7 +37,7 @@
     border-radius: $radius-xl;
     border: 1.5px solid $border-color;
     background: $bg-card;
-    padding: 0 $spacing-lg 0 40px;
+    padding: 0 $spacing-lg 0 36px;
     font-size: $font-size-sm;
     color: $text-primary;
     outline: none;
@@ -54,11 +54,12 @@
 
   .search-icon {
     position: absolute;
-    left: calc($spacing-lg + 12px);
+    left: 10px;
     top: 50%;
     transform: translateY(-50%);
     color: $text-tertiary;
     font-size: 16px;
+    pointer-events: none;
   }
 }
 

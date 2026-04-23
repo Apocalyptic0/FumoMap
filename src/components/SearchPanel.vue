@@ -1,27 +1,6 @@
 <template>
   <transition name="panel-slide">
     <div v-if="visible" class="search-panel">
-      <!-- 角色筛选条 -->
-      <div class="filter-bar" v-if="characters.length > 0">
-        <button
-          class="filter-chip"
-          :class="{ active: !filterCharId }"
-          @click="$emit('filter', null)"
-        >
-          全部
-        </button>
-        <button
-          v-for="char in characters"
-          :key="char.id"
-          class="filter-chip"
-          :class="{ active: filterCharId === char.id }"
-          @click="$emit('filter', char.id)"
-        >
-          <img :src="char.avatarUrl" :alt="char.name" class="chip-avatar" />
-          <span>{{ char.name }}</span>
-        </button>
-      </div>
-
       <!-- 结果列表 -->
       <div class="result-list" v-if="results.length > 0">
         <div
@@ -48,27 +27,24 @@
       <!-- 空状态 -->
       <div v-else class="result-empty">
         <span class="empty-icon">🔍</span>
-        <span class="empty-text">没有找到匹配的打卡记录</span>
+        <span class="empty-text">输入关键词搜索打卡记录</span>
       </div>
     </div>
   </transition>
 </template>
 
 <script setup lang="ts">
-import type { Mark, Character } from '@/types'
+import type { Mark } from '@/types'
 import { useCharacterStore } from '@/stores/characterStore'
 
 defineProps<{
   visible: boolean
   results: Mark[]
-  characters: Character[]
-  filterCharId: string | null
 }>()
 
 defineEmits<{
   close: []
   select: [mark: Mark]
-  filter: [charId: string | null]
 }>()
 
 const characterStore = useCharacterStore()
@@ -94,55 +70,6 @@ function getCharacterNames(mark: Mark): string {
   background: $bg-primary;
   display: flex;
   flex-direction: column;
-}
-
-.filter-bar {
-  display: flex;
-  gap: $spacing-xs;
-  padding: $spacing-sm $spacing-lg;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  border-bottom: 1px solid $divider-color;
-  flex-shrink: 0;
-
-  // 隐藏滚动条
-  &::-webkit-scrollbar {
-    display: none;
-  }
-  scrollbar-width: none;
-
-  .filter-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 12px;
-    border-radius: $radius-full;
-    border: 1.5px solid $border-color;
-    background: $bg-card;
-    font-size: $font-size-xs;
-    color: $text-secondary;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: all $transition-fast;
-    flex-shrink: 0;
-
-    .chip-avatar {
-      width: 18px;
-      height: 18px;
-      border-radius: $radius-full;
-      object-fit: cover;
-    }
-
-    &.active {
-      border-color: $color-primary;
-      background: $color-primary-light;
-      color: $color-primary-dark;
-    }
-
-    &:hover:not(.active) {
-      border-color: $color-primary;
-    }
-  }
 }
 
 .result-list {

@@ -328,13 +328,10 @@ async function deleteMark() {
       confirmButtonColor: '#ee0a24',
       cancelButtonText: '取消',
     })
-    const success = markStore.removeMark(markId)
-    if (success) {
-      showToast({ message: '已删除', type: 'success' })
-      router.replace('/')
-    } else {
-      showToast({ message: '删除失败', type: 'fail' })
-    }
+    // 先跳转再删除，避免 mark 变 null 导致白屏
+    await router.replace('/')
+    markStore.removeMark(markId)
+    showToast({ message: '已删除', type: 'success' })
   } catch {
     // 用户取消
   }
