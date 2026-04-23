@@ -38,3 +38,6 @@ export interface GeoPosition {
   lat: number
   lng: number
 }
+
+/** 默认地图中心：深圳（方便国内测试） */
+export const DEFAULT_CENTER: GeoPosition = { lat: 22.5431, lng: 113.9348 }

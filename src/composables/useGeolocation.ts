@@ -1,8 +1,9 @@
 import { ref } from 'vue'
+import { DEFAULT_CENTER } from '@/types'
 import type { GeoPosition } from '@/types'
 
-// 默认位置：深圳宝安区（方便国内测试）
-const DEFAULT_POSITION: GeoPosition = { lat: 22.5431, lng: 113.9348 }
+// 默认位置复用全局常量
+const DEFAULT_POSITION: GeoPosition = { ...DEFAULT_CENTER }
 
 export function useGeolocation() {
   const position = ref<GeoPosition>(DEFAULT_POSITION)

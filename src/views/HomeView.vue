@@ -48,6 +48,7 @@
 <script setup lang="ts">
 import { ref, onMounted, provide, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { DEFAULT_CENTER } from '@/types'
 import type { Mark, GeoPosition } from '@/types'
 import MapView from '@/components/MapView.vue'
 import MarkerPopup from '@/components/MarkerPopup.vue'
@@ -65,10 +66,10 @@ const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const selectedMark = ref<Mark | null>(null)
 
 // 地图中心：独立于定位坐标，避免 locate() 完成后自动飞回
-const displayCenter = ref<GeoPosition>({ lat: 22.5431, lng: 113.9348 })
+const displayCenter = ref<GeoPosition>({ ...DEFAULT_CENTER })
 
 // 提供地图中心坐标给子组件（FumoFab 使用）
-const mapCenter = ref<GeoPosition>({ lat: 22.5431, lng: 113.9348 })
+const mapCenter = ref<GeoPosition>({ ...DEFAULT_CENTER })
 provide('mapCenter', mapCenter)
 
 function onMarkerClick(mark: Mark) {
@@ -107,7 +108,7 @@ onMounted(async () => {
 
 <style lang="scss" scoped>
 @use '@/styles/variables' as *;
-@import '@/styles/map.scss';
+@use '@/styles/map.scss' as *;
 
 .home-view {
   width: 100%;

@@ -1,7 +1,7 @@
 import { ref, onMounted, onUnmounted, type Ref } from 'vue'
 import L from 'leaflet'
-import type { GeoPosition, Mark } from '@/types'
-import type { Character } from '@/types'
+import { DEFAULT_CENTER } from '@/types'
+import type { GeoPosition, Mark, Character } from '@/types'
 
 /** 标记样式接口，支持后续个性化扩展 */
 export interface MarkerStyle {
@@ -15,20 +15,65 @@ interface UseMapOptions {
   container: Ref<HTMLElement | null>
   center?: GeoPosition
   zoom?: number
-  draggableMarker?: boolean // 是否启用可拖拽的选点标记
+  draggableMarker?: boolean
   onDragEnd?: (pos: GeoPosition) => void
-  showLocationMarker?: boolean // 是否显示当前位置蓝点标记
+  showLocationMarker?: boolean
+}
+
+/**
+ * HTML 特殊字符转义，防止 XSS 注入
+ */
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+/**
+ * 校验 CSS 颜色值，只允许安全的颜色格式
+ */
+function sanitizeColor(color: string): string {
+  if (/^#[0-9a-fA-F]{3,8}$/.test(color)) return color
+  if (/^rgb\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*\)$/.test(color)) return color
+  if (/^rgba\(\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*\d{1,3}\s*,\s*[\d.]+\s*\)$/.test(color)) return color
+  return '#D4CAF0'
+}
+
+/**
+ * 校验 URL，只允许安全协议
+ */
+function sanitizeUrl(url: string): string {
+  if (!url) return ''
+  try {
+    const parsed = new URL(url, window.location.origin)
+    if (['http:', 'https:', 'data:'].includes(parsed.protocol)) return url
+  } catch {
+    // data URI 等特殊格式的降级处理
+    if (url.startsWith('data:image/')) return url
+  }
+  return ''
 }
 
 export function useMap(options: UseMapOptions) {
   const map = ref<L.Map | null>(null)
   const markers = ref<Map<string, L.Marker>>(new Map())
   const dragMarker = ref<L.Marker | null>(null)
-  const locationMarker = ref<L.Marker | null>(null) // 当前位置蓝点标记
+  const locationMarker = ref<L.Marker | null>(null)
 
-  // 默认中心：深圳（方便国内测试）
-  const defaultCenter: GeoPosition = { lat: 22.5431, lng: 113.9348 }
+  const defaultCenter: GeoPosition = { ...DEFAULT_CENTER }
   const defaultZoom = 16
+
+  /**
+   * 获取 map 实例（Vue ref 的 UnwrapRef 与 L.Map 存在类型不兼容，
+   * 集中在此处做一次类型断言，避免全文散落 as any）
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function getMap(): any {
+    return map.value
+  }
 
   /**
    * 初始化地图
@@ -42,7 +87,7 @@ export function useMap(options: UseMapOptions) {
     map.value = L.map(options.container.value, {
       center: [center.lat, center.lng],
       zoom,
-      zoomControl: false, // 移动端隐藏缩放控件
+      zoomControl: false,
       attributionControl: false,
     })
 
@@ -65,14 +110,15 @@ export function useMap(options: UseMapOptions) {
       },
     ]
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = map.value as any
+    const m = getMap()
 
+    let hasFallenBack = false
     let tileLayer = L.tileLayer(tileLayers[0].url, tileLayers[0].options)
     tileLayer.addTo(m)
 
     tileLayer.on('tileerror', () => {
-      if (map.value && tileLayers.length > 1) {
+      if (!hasFallenBack && map.value && tileLayers.length > 1) {
+        hasFallenBack = true
         m.removeLayer(tileLayer)
         tileLayer = L.tileLayer(tileLayers[1].url, tileLayers[1].options)
         tileLayer.addTo(m)
@@ -94,9 +140,8 @@ export function useMap(options: UseMapOptions) {
    * 添加可拖拽的定位标记
    */
   function addDragMarker(pos: GeoPosition) {
-    if (!map.value) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = map.value as any
+    const m = getMap()
+    if (!m) return
 
     const icon = L.divIcon({
       className: 'drag-marker',
@@ -113,7 +158,7 @@ export function useMap(options: UseMapOptions) {
     dragMarker.value = L.marker([pos.lat, pos.lng], {
       icon,
       draggable: true,
-    }).addTo(m) as L.Marker
+    }).addTo(m)
 
     dragMarker.value.on('dragend', () => {
       if (dragMarker.value && options.onDragEnd) {
@@ -143,9 +188,8 @@ export function useMap(options: UseMapOptions) {
    * 添加当前位置蓝点标记（带脉冲动画）
    */
   function addLocationMarker(pos: GeoPosition) {
-    if (!map.value) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = map.value as any
+    const m = getMap()
+    if (!m) return
 
     removeLocationMarker()
 
@@ -163,7 +207,7 @@ export function useMap(options: UseMapOptions) {
       icon,
       interactive: false,
       zIndexOffset: 1000,
-    }).addTo(m) as L.Marker
+    }).addTo(m)
   }
 
   /**
@@ -182,8 +226,7 @@ export function useMap(options: UseMapOptions) {
    */
   function removeLocationMarker() {
     if (locationMarker.value && map.value) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(map.value as any).removeLayer(locationMarker.value)
+      getMap().removeLayer(locationMarker.value)
       locationMarker.value = null
     }
   }
@@ -197,25 +240,26 @@ export function useMap(options: UseMapOptions) {
     onClick?: (mark: Mark) => void,
     style?: MarkerStyle
   ) {
-    if (!map.value || markers.value.has(mark.id)) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m = map.value as any
+    const m = getMap()
+    if (!m || markers.value.has(mark.id)) return
 
     const markerStyle = style || { type: 'pin' as const }
-    const avatarUrl = character?.avatarUrl || ''
     const markerSize = markerStyle.size || 40
-    const pinColor = markerStyle.color || '#D4CAF0'
+    const pinColor = sanitizeColor(markerStyle.color || '#D4CAF0')
     const pinHeight = markerSize + 16
 
     let iconHtml: string
 
     if (markerStyle.type === 'custom' && markerStyle.customHtml) {
-      iconHtml = markerStyle.customHtml
+      // 对 customHtml 做转义，防止 XSS
+      iconHtml = escapeHtml(markerStyle.customHtml)
     } else {
       const innerSize = markerSize - 8
+      const safeAvatarUrl = sanitizeUrl(character?.avatarUrl || '')
+      const safeName = escapeHtml(character?.name || '')
       iconHtml = `<div class="fumo-pin-marker" style="--pin-color: ${pinColor}; --pin-size: ${markerSize}px;">
         <div class="pin-head">
-          <img src="${avatarUrl}" class="pin-avatar" alt="${character?.name || ''}" style="width:${innerSize}px;height:${innerSize}px;" />
+          <img src="${safeAvatarUrl}" class="pin-avatar" alt="${safeName}" style="width:${innerSize}px;height:${innerSize}px;" />
         </div>
         <div class="pin-tip"></div>
       </div>`
@@ -228,7 +272,7 @@ export function useMap(options: UseMapOptions) {
       iconAnchor: [markerSize / 2, pinHeight],
     })
 
-    const marker = L.marker([mark.lat, mark.lng], { icon }).addTo(m) as L.Marker
+    const marker = L.marker([mark.lat, mark.lng], { icon }).addTo(m)
 
     if (onClick) {
       marker.on('click', () => onClick(mark))
@@ -243,8 +287,7 @@ export function useMap(options: UseMapOptions) {
   function removeMarkMarker(markId: string) {
     const marker = markers.value.get(markId)
     if (marker && map.value) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(map.value as any).removeLayer(marker)
+      getMap().removeLayer(marker)
       markers.value.delete(markId)
     }
   }
@@ -254,8 +297,7 @@ export function useMap(options: UseMapOptions) {
    */
   function clearMarkers() {
     markers.value.forEach((marker) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      ;(map.value as any)?.removeLayer(marker)
+      getMap()?.removeLayer(marker)
     })
     markers.value.clear()
   }

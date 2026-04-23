@@ -7,13 +7,14 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, inject, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { DEFAULT_CENTER } from '@/types'
 import type { GeoPosition } from '@/types'
 
 const router = useRouter()
 const pulse = ref(true)
 
 // 从父组件注入地图引用，获取当前地图中心
-const mapCenter = inject<Ref<GeoPosition>>('mapCenter', ref({ lat: 22.5431, lng: 113.9348 }))
+const mapCenter = inject<Ref<GeoPosition>>('mapCenter', ref({ ...DEFAULT_CENTER }))
 
 let timer: ReturnType<typeof setTimeout> | null = null
 

@@ -4,6 +4,7 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted } from 'vue'
+import { DEFAULT_CENTER } from '@/types'
 import type { GeoPosition, Mark, Character } from '@/types'
 import { useMap } from '@/composables/useMap'
 
@@ -37,7 +38,7 @@ const {
   flyTo,
   setCenter,
   addMarkMarker,
-  clearMarkers,
+  removeMarkMarker,
   updateDragMarkerPosition,
   updateLocationMarker,
   invalidateSize,
@@ -50,18 +51,40 @@ const {
   onDragEnd: (pos) => emit('dragEnd', pos),
 })
 
-// 监听标记数据变化，重新渲染
+// 上一次渲染的标记 ID 集合，用于增量 diff
+let prevMarkIds = new Set<string>()
+
+/**
+ * 渲染标记的辅助函数
+ */
+function renderMark(mark: Mark) {
+  const primaryCharId = mark.characterIds[0]
+  const character = props.getCharacter?.(primaryCharId)
+  addMarkMarker(mark, character, (m) => emit('markerClick', m))
+}
+
+// 监听标记数据变化 — 增量 diff：只增删变化的标记，避免全量重建
 watch(
   () => props.marks,
   (newMarks) => {
-    clearMarkers()
-    newMarks.forEach((mark) => {
-      const primaryCharId = mark.characterIds[0]
-      const character = props.getCharacter?.(primaryCharId)
-      addMarkMarker(mark, character, (m) => emit('markerClick', m))
-    })
-  },
-  { deep: true }
+    const newIds = new Set(newMarks.map((m) => m.id))
+
+    // 移除已不存在的标记
+    for (const oldId of prevMarkIds) {
+      if (!newIds.has(oldId)) {
+        removeMarkMarker(oldId)
+      }
+    }
+
+    // 添加新出现的标记
+    for (const mark of newMarks) {
+      if (!prevMarkIds.has(mark.id)) {
+        renderMark(mark)
+      }
+    }
+
+    prevMarkIds = newIds
+  }
 )
 
 // 监听中心位置变化 - 只平移不重置缩放
@@ -81,10 +104,9 @@ onMounted(() => {
   // 初始渲染标记
   if (props.marks.length > 0) {
     props.marks.forEach((mark) => {
-      const primaryCharId = mark.characterIds[0]
-      const character = props.getCharacter?.(primaryCharId)
-      addMarkMarker(mark, character, (m) => emit('markerClick', m))
+      renderMark(mark)
     })
+    prevMarkIds = new Set(props.marks.map((m) => m.id))
   }
 
   // 监听地图移动事件，向父组件报告当前中心
@@ -103,7 +125,7 @@ function getCenter(): GeoPosition {
     const center = map.value.getCenter()
     return { lat: center.lat, lng: center.lng }
   }
-  return props.center || { lat: 22.5431, lng: 113.9348 }
+  return props.center || { ...DEFAULT_CENTER }
 }
 
 defineExpose({
