@@ -11,8 +11,8 @@
       @map-move="onMapMove"
     />
 
-    <!-- 顶部搜索栏 -->
-    <div class="map-search-bar glass-effect">
+    <!-- 顶部搜索栏（z-index 高于搜索面板） -->
+    <div class="map-search-bar glass-effect" :class="{ 'search-bar--active': showSearchPanel }">
       <div class="search-wrapper">
         <span class="search-icon">🔍</span>
         <input
@@ -50,7 +50,7 @@
       </button>
     </div>
 
-    <!-- 搜索面板 -->
+    <!-- 搜索面板（从搜索栏下方开始） -->
     <SearchPanel
       :visible="showSearchPanel"
       :results="searchResults"
@@ -358,5 +358,6 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: $spacing-sm;
+  z-index: 1100;
 }
 </style>

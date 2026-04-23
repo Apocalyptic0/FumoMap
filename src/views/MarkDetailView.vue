@@ -318,6 +318,7 @@ function editMark() {
 /** 删除打卡 */
 async function deleteMark() {
   if (!mark.value) return
+  const markId = mark.value.id
   try {
     await showDialog({
       title: '确认删除',
@@ -327,7 +328,7 @@ async function deleteMark() {
       confirmButtonColor: '#ee0a24',
       cancelButtonText: '取消',
     })
-    const success = markStore.removeMark(mark.value.id)
+    const success = markStore.removeMark(markId)
     if (success) {
       showToast({ message: '已删除', type: 'success' })
       router.replace('/')
