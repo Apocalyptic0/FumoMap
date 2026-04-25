@@ -48,6 +48,27 @@
           <span class="stat-label">浏览</span>
         </div>
       </div>
+
+      <!-- 认证状态 -->
+      <div class="auth-section">
+        <template v-if="userStore.isCloudUser">
+          <div class="auth-status">
+            <span class="auth-badge cloud">☁️ 云端用户</span>
+            <span class="auth-email">{{ userStore.currentUser.email }}</span>
+          </div>
+          <button class="auth-btn logout" @click="handleLogout">退出登录</button>
+        </template>
+        <template v-else>
+          <div class="auth-status">
+            <span class="auth-badge local">📱 本地用户</span>
+            <span class="auth-hint">登录后可跨设备同步数据</span>
+          </div>
+          <div class="auth-actions">
+            <button class="auth-btn login" @click="router.push('/login')">登录</button>
+            <button class="auth-btn register" @click="router.push('/register')">注册</button>
+          </div>
+        </template>
+      </div>
     </div>
 
     <!-- Tab 切换 -->
@@ -271,6 +292,11 @@ function saveProfile() {
   showEditDialog.value = false
   showToast({ message: '已保存', type: 'success' })
 }
+
+async function handleLogout() {
+  await userStore.logout()
+  showToast({ message: '已退出登录', type: 'success' })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -420,6 +446,86 @@ function saveProfile() {
 
     &:active {
       opacity: 0.7;
+    }
+  }
+}
+
+// 认证状态区
+.auth-section {
+  margin-top: $spacing-md;
+  padding-top: $spacing-md;
+  border-top: 1px solid $divider-color;
+
+  .auth-status {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+    margin-bottom: $spacing-sm;
+  }
+
+  .auth-badge {
+    font-size: $font-size-xs;
+    padding: 2px 8px;
+    border-radius: $radius-full;
+    font-weight: 500;
+
+    &.cloud {
+      background: rgba(52, 120, 246, 0.1);
+      color: #3478f6;
+    }
+
+    &.local {
+      background: rgba(255, 149, 0, 0.1);
+      color: #ff9500;
+    }
+  }
+
+  .auth-email {
+    font-size: $font-size-xs;
+    color: $text-secondary;
+  }
+
+  .auth-hint {
+    font-size: $font-size-xs;
+    color: $text-placeholder;
+  }
+
+  .auth-actions {
+    display: flex;
+    gap: $spacing-sm;
+    margin-top: $spacing-xs;
+  }
+
+  .auth-btn {
+    flex: 1;
+    padding: $spacing-sm;
+    border: none;
+    border-radius: $radius-md;
+    font-size: $font-size-sm;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all $transition-fast;
+
+    &:active {
+      transform: scale(0.98);
+    }
+
+    &.login {
+      background: $color-primary;
+      color: #fff;
+    }
+
+    &.register {
+      background: rgba($color-primary, 0.1);
+      color: $color-primary;
+    }
+
+    &.logout {
+      width: 100%;
+      margin-top: $spacing-xs;
+      background: rgba(255, 59, 48, 0.08);
+      color: #ff3b30;
+      padding: $spacing-sm;
     }
   }
 }
