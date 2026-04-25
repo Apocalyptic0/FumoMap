@@ -33,3 +33,6 @@ tsconfig.tsbuildinfo
 
 # Dev logs
 dev-logs/
+
+# Design notes (internal, not for GitHub)
+design-notes/

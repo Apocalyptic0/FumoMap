@@ -61,7 +61,7 @@
         <!-- 图片上传（小缩略图模式） -->
         <div class="form-item">
           <label class="form-label">打卡照片</label>
-          <ImageUploader v-model="form.images" :max-count="3" class="compact-uploader" />
+          <ImageUploader ref="imageUploaderRef" v-model="form.images" :max-count="3" class="compact-uploader" />
         </div>
 
         <!-- 角色选择 -->
@@ -152,6 +152,7 @@ const geoLoading = computed(() => geoPosLoading.value || geoNameLoading.value)
 const showCharacterPicker = ref(false)
 const tagsInput = ref('')
 const showSuggestions = ref(true)
+const imageUploaderRef = ref<InstanceType<typeof ImageUploader> | null>(null)
 
 // 编辑模式检测
 const editId = route.query.edit as string | undefined
@@ -242,7 +243,7 @@ function getCharName(id: string): string {
   return characterStore.getCharacterById(id)?.name || '未知'
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   if (!isFormValid.value) {
     showToast('请填写地点名称并选择至少一个角色')
     return
@@ -256,7 +257,8 @@ function handleSubmit() {
   }
 
   if (isEditMode && editId) {
-    const result = markStore.updateMark(editId, form.value)
+    const compressedFiles = imageUploaderRef.value?.getCompressedFiles()
+    const result = await markStore.updateMark(editId, form.value, compressedFiles)
     if (result.success) {
       showToast({ message: '修改成功！', type: 'success' })
       router.replace(`/mark/${editId}`)
@@ -264,7 +266,8 @@ function handleSubmit() {
       showToast({ message: result.message, type: 'fail' })
     }
   } else {
-    const result = markStore.addMark(form.value)
+    const compressedFiles = imageUploaderRef.value?.getCompressedFiles()
+    const result = await markStore.addMark(form.value, compressedFiles)
     if (result.success) {
       showToast({ message: '打卡成功！', type: 'success' })
       router.push('/')

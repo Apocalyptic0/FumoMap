@@ -1,12 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { LocalUser } from '@/types'
+import type { LocalUser, AuthUser } from '@/types'
 import { getItem, setItem } from '@/utils/storage'
 import { generatePlaceholderAvatar } from '@/utils/placeholder'
+import { isSupabaseReady } from '@/api/client'
+import * as authApi from '@/api/auth'
 
 const STORAGE_KEY = 'user_profile'
 
-/** 默认测试用户 */
+/** 默认本地用户（未登录时降级使用） */
 const DEFAULT_USER: LocalUser = {
   id: 'local_user_001',
   nickname: 'Fumo旅行者',
@@ -18,31 +20,79 @@ const DEFAULT_USER: LocalUser = {
 /**
  * 用户 Store
  *
- * P0：本地单用户，数据存 localStorage
- * P1 迁移计划：
- *   - init() 改为调用 auth API 获取用户信息
- *   - updateProfile() 改为调用 PUT /api/user/profile
- *   - 新增 login() / logout() / refreshToken()
+ * 双路径模式：
+ *   - 已登录云端用户：数据来自 Supabase Auth + profiles 表
+ *   - 未登录 / Supabase 不可用：降级为 P0 本地用户
  */
 export const useUserStore = defineStore('user', () => {
-  const currentUser = ref<LocalUser>(DEFAULT_USER)
+  const currentUser = ref<LocalUser | AuthUser>({ ...DEFAULT_USER })
 
-  /** 是否已登录（P0 永远为 true，P1 根据 token 判断） */
+  /** 是否为云端登录用户 */
+  const isCloudUser = computed(() => 'isCloudUser' in currentUser.value && currentUser.value.isCloudUser === true)
+
+  /** 是否已登录（云端用户 = 有 session；本地用户 = 永远 true，兼容 P0） */
   const isLoggedIn = computed(() => !!currentUser.value.id)
 
+  /** 认证初始化是否完成 */
+  const authReady = ref(false)
+
+  /** 认证操作中 */
+  const authLoading = ref(false)
+
   /**
-   * 初始化：从 localStorage 加载用户信息
-   * P1：替换为 fetchUserProfile() 从服务端获取
+   * 初始化：优先恢复 Supabase session，否则降级 localStorage
    */
-  function init() {
+  async function init() {
+    if (isSupabaseReady()) {
+      try {
+        const session = await authApi.getSession()
+        if (session?.user) {
+          await loadCloudProfile(session.user.id, session.user.email ?? '')
+          // 监听认证状态变化
+          authApi.onAuthStateChange(async (event, newSession) => {
+            if (event === 'SIGNED_OUT' || !newSession) {
+              resetToLocal()
+            } else if (event === 'SIGNED_IN' && newSession?.user) {
+              await loadCloudProfile(newSession.user.id, newSession.user.email ?? '')
+            }
+          })
+          authReady.value = true
+          return
+        }
+      } catch (e) {
+        console.warn('[UserStore] Supabase session 恢复失败，降级本地模式:', e)
+      }
+    }
+
+    // 降级：从 localStorage 加载本地用户
+    loadLocalUser()
+    authReady.value = true
+  }
+
+  /** 加载本地用户 */
+  function loadLocalUser() {
     const saved = getItem<LocalUser>(STORAGE_KEY)
     if (saved && saved.id) {
       currentUser.value = saved
     } else {
-      // 首次使用，创建默认测试用户
       currentUser.value = { ...DEFAULT_USER, createdAt: Date.now() }
       syncToStorage()
     }
+  }
+
+  /** 加载云端 profile */
+  async function loadCloudProfile(userId: string, email: string) {
+    const profile = await authApi.getProfile(userId)
+    const authUser: AuthUser = {
+      id: userId,
+      email,
+      nickname: profile?.nickname ?? 'Fumo旅行者',
+      avatarUrl: profile?.avatar_url ?? generatePlaceholderAvatar(profile?.nickname ?? '旅行者'),
+      bio: profile?.bio ?? '',
+      createdAt: profile?.created_at ? new Date(profile.created_at).getTime() : Date.now(),
+      isCloudUser: true,
+    }
+    currentUser.value = authUser
   }
 
   function syncToStorage(): boolean {
@@ -50,14 +100,78 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 更新用户资料
-   * P1：替换为 API 调用 + 乐观更新
+   * 邮箱+密码注册
    */
-  function updateProfile(updates: Partial<Pick<LocalUser, 'nickname' | 'bio' | 'avatarUrl'>>) {
+  async function register(email: string, password: string, nickname: string): Promise<{ success: boolean; message: string }> {
+    authLoading.value = true
+    try {
+      const result = await authApi.register(email, password, nickname)
+      if (result.success && result.user) {
+        await loadCloudProfile(result.user.id, email)
+      }
+      return result
+    } finally {
+      authLoading.value = false
+    }
+  }
+
+  /**
+   * 邮箱+密码登录
+   */
+  async function login(email: string, password: string): Promise<{ success: boolean; message: string }> {
+    authLoading.value = true
+    try {
+      const result = await authApi.login(email, password)
+      if (result.success && result.user) {
+        await loadCloudProfile(result.user.id, email)
+      }
+      return result
+    } finally {
+      authLoading.value = false
+    }
+  }
+
+  /**
+   * 登出
+   */
+  async function logout() {
+    await authApi.logout()
+    resetToLocal()
+  }
+
+  /** 重置为本地用户 */
+  function resetToLocal() {
+    currentUser.value = { ...DEFAULT_USER, createdAt: Date.now() }
+    syncToStorage()
+  }
+
+  /**
+   * 更新用户资料
+   * 云端用户调 API + 乐观更新；本地用户直接写 localStorage
+   */
+  async function updateProfile(updates: Partial<Pick<LocalUser, 'nickname' | 'bio' | 'avatarUrl'>>) {
+    const old = { ...currentUser.value }
+
+    // 乐观更新
     if (updates.nickname !== undefined) currentUser.value.nickname = updates.nickname
     if (updates.bio !== undefined) currentUser.value.bio = updates.bio
     if (updates.avatarUrl !== undefined) currentUser.value.avatarUrl = updates.avatarUrl
-    syncToStorage()
+
+    if (isCloudUser.value) {
+      try {
+        await authApi.updateProfile(currentUser.value.id, {
+          nickname: updates.nickname,
+          bio: updates.bio,
+          avatar_url: updates.avatarUrl,
+        })
+      } catch (e) {
+        // 回滚
+        currentUser.value = old as LocalUser | AuthUser
+        throw e
+      }
+    } else {
+      syncToStorage()
+    }
   }
 
   /** 获取当前用户 ID */
@@ -71,6 +185,12 @@ export const useUserStore = defineStore('user', () => {
   return {
     currentUser,
     isLoggedIn,
+    isCloudUser,
+    authReady,
+    authLoading,
+    register,
+    login,
+    logout,
     updateProfile,
     getUserId,
   }

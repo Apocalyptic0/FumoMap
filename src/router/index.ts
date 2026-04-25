@@ -8,6 +8,18 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/HomeView.vue'),
   },
   {
+    path: '/login',
+    name: 'Login',
+    component: () => import('@/views/LoginView.vue'),
+    meta: { guest: true }, // 已登录云端用户访问时跳转首页
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/RegisterView.vue'),
+    meta: { guest: true },
+  },
+  {
     path: '/create',
     name: 'Create',
     component: () => import('@/views/CreateView.vue'),

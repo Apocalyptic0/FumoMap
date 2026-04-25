@@ -3,15 +3,44 @@ import { ref, computed } from 'vue'
 import type { Mark, MarkFormData } from '@/types'
 import { getItem, setItem, isStorageNearFull } from '@/utils/storage'
 import { useCharacterStore } from './characterStore'
+import { useUserStore } from './userStore'
+import { isSupabaseReady } from '@/api/client'
+import * as marksApi from '@/api/marks'
+import * as storageApi from '@/api/storage'
+import type { DbMark } from '@/api/marks'
 
 const STORAGE_KEY = 'marks'
+
+/**
+ * 将云端 DbMark（snake_case）转换为前端 Mark（camelCase）
+ */
+function dbMarkToMark(db: DbMark): Mark {
+  return {
+    id: db.id,
+    userId: db.user_id,
+    characterIds: db.character_ids,
+    lat: db.lat,
+    lng: db.lng,
+    locationName: db.location_name,
+    images: db.images,
+    description: db.description,
+    tags: db.tags,
+    visibility: db.visibility,
+    createdAt: new Date(db.created_at).getTime(),
+    likeCount: db.like_count,
+    likedBy: [],
+  }
+}
 
 export const useMarkStore = defineStore('mark', () => {
   const marks = ref<Mark[]>([])
 
+  /** 是否正在加载 */
+  const loading = ref(false)
+
   /**
-   * 初始化：从 localStorage 加载标记数据
-   * 兼容旧数据：为缺少互动字段的 Mark 补充默认值
+   * 初始化：从 localStorage 加载本地标记数据
+   * 云端标记通过 fetchPublicMarks/fetchMyMarks 按需加载
    */
   function init() {
     const saved = getItem<Mark[]>(STORAGE_KEY)
@@ -32,10 +61,66 @@ export const useMarkStore = defineStore('mark', () => {
   }
 
   /**
-   * 添加新标记
+   * 判断当前是否走云端路径
    */
-  function addMark(formData: MarkFormData): { success: boolean; message: string; mark?: Mark } {
-    // 检查存储空间
+  function shouldUseCloud(): boolean {
+    if (!isSupabaseReady()) return false
+    const userStore = useUserStore()
+    return userStore.isCloudUser
+  }
+
+  /**
+   * 添加新标记
+   * 已登录：图片上传 Storage → 创建云端记录
+   * 未登录：base64 存 localStorage
+   */
+  async function addMark(
+    formData: MarkFormData,
+    compressedFiles?: File[]
+  ): Promise<{ success: boolean; message: string; mark?: Mark }> {
+    const userStore = useUserStore()
+
+    if (shouldUseCloud()) {
+      // === 云端路径 ===
+      try {
+        loading.value = true
+        let imageUrls: string[] = formData.images
+
+        // 如果提供了压缩文件，上传到 Storage
+        if (compressedFiles && compressedFiles.length > 0) {
+          imageUrls = await storageApi.uploadImages(
+            compressedFiles,
+            userStore.getUserId()
+          )
+        }
+
+        const dbMark = await marksApi.createMark({
+          character_ids: formData.characterIds,
+          lat: formData.lat,
+          lng: formData.lng,
+          location_name: formData.locationName,
+          images: imageUrls,
+          description: formData.description,
+          tags: formData.tags,
+          visibility: 'public',
+        })
+
+        const mark = dbMarkToMark(dbMark)
+        marks.value.push(mark)
+
+        // 更新关联角色的 markCount
+        const characterStore = useCharacterStore()
+        characterStore.incrementMarkCount(formData.characterIds)
+
+        return { success: true, message: '打卡成功！', mark }
+      } catch (e: any) {
+        return { success: false, message: e?.message || '创建打卡失败，请重试' }
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // === 本地路径（P0 兼容） ===
     if (isStorageNearFull()) {
       return { success: false, message: '存储空间不足，请删除部分打卡记录后再试' }
     }
@@ -58,12 +143,10 @@ export const useMarkStore = defineStore('mark', () => {
 
     const saved = syncToStorage()
     if (!saved) {
-      // 写入失败，回滚
       marks.value.pop()
       return { success: false, message: '保存失败，存储空间可能不足' }
     }
 
-    // 更新关联角色的 markCount
     const characterStore = useCharacterStore()
     characterStore.incrementMarkCount(formData.characterIds)
 
@@ -73,15 +156,29 @@ export const useMarkStore = defineStore('mark', () => {
   /**
    * 删除标记
    */
-  function removeMark(id: string): boolean {
+  async function removeMark(id: string): Promise<boolean> {
     const index = marks.value.findIndex((m) => m.id === id)
     if (index === -1) return false
 
     const mark = marks.value[index]
+
+    if (shouldUseCloud()) {
+      try {
+        // 删除云端图片
+        const cloudImages = mark.images.filter((img) => img.startsWith('http'))
+        if (cloudImages.length > 0) {
+          await storageApi.deleteImages(cloudImages)
+        }
+        await marksApi.deleteMark(id)
+      } catch (e) {
+        console.error('[MarkStore] 云端删除失败:', e)
+        return false
+      }
+    }
+
     marks.value.splice(index, 1)
     syncToStorage()
 
-    // 减少关联角色的 markCount
     const characterStore = useCharacterStore()
     characterStore.decrementMarkCount(mark.characterIds)
 
@@ -91,18 +188,57 @@ export const useMarkStore = defineStore('mark', () => {
   /**
    * 更新标记
    */
-  function updateMark(id: string, formData: MarkFormData): { success: boolean; message: string } {
+  async function updateMark(
+    id: string,
+    formData: MarkFormData,
+    compressedFiles?: File[]
+  ): Promise<{ success: boolean; message: string }> {
     const index = marks.value.findIndex((m) => m.id === id)
     if (index === -1) return { success: false, message: '未找到该打卡记录' }
 
     const oldMark = marks.value[index]
-
-    // 更新角色 markCount（先减旧的，再加新的）
     const characterStore = useCharacterStore()
+    const userStore = useUserStore()
+
+    if (shouldUseCloud()) {
+      try {
+        loading.value = true
+        let imageUrls: string[] = formData.images
+
+        // 上传新图片
+        if (compressedFiles && compressedFiles.length > 0) {
+          imageUrls = await storageApi.uploadImages(
+            compressedFiles,
+            userStore.getUserId()
+          )
+        }
+
+        const dbMark = await marksApi.updateMark(id, {
+          character_ids: formData.characterIds,
+          lat: formData.lat,
+          lng: formData.lng,
+          location_name: formData.locationName,
+          images: imageUrls,
+          description: formData.description,
+          tags: formData.tags,
+        })
+
+        characterStore.decrementMarkCount(oldMark.characterIds)
+        characterStore.incrementMarkCount(formData.characterIds)
+        marks.value[index] = dbMarkToMark(dbMark)
+
+        return { success: true, message: '更新成功！' }
+      } catch (e: any) {
+        return { success: false, message: e?.message || '更新失败，请重试' }
+      } finally {
+        loading.value = false
+      }
+    }
+
+    // === 本地路径 ===
     characterStore.decrementMarkCount(oldMark.characterIds)
     characterStore.incrementMarkCount(formData.characterIds)
 
-    // 保留 id、createdAt 和互动字段，更新其余字段
     marks.value[index] = {
       ...oldMark,
       characterIds: formData.characterIds,
@@ -116,7 +252,6 @@ export const useMarkStore = defineStore('mark', () => {
 
     const saved = syncToStorage()
     if (!saved) {
-      // 回滚
       marks.value[index] = oldMark
       characterStore.decrementMarkCount(formData.characterIds)
       characterStore.incrementMarkCount(oldMark.characterIds)
@@ -141,6 +276,53 @@ export const useMarkStore = defineStore('mark', () => {
   /** 标记总数 */
   const markCount = computed(() => marks.value.length)
 
+  /**
+   * 从云端加载公开标记（P1 新增）
+   */
+  async function fetchPublicMarks(): Promise<void> {
+    if (!shouldUseCloud()) return
+    try {
+      loading.value = true
+      const dbMarks = await marksApi.getPublicMarks()
+      const fetched = dbMarks.map(dbMarkToMark)
+
+      // 合并：以 id 去重，云端数据覆盖本地
+      const idSet = new Set(marks.value.map((m) => m.id))
+      for (const m of fetched) {
+        if (!idSet.has(m.id)) {
+          marks.value.push(m)
+          idSet.add(m.id)
+        }
+      }
+    } catch (e) {
+      console.error('[MarkStore] 加载公开标记失败:', e)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 从云端加载我的标记（P1 新增）
+   */
+  async function fetchMyMarks(): Promise<void> {
+    if (!shouldUseCloud()) return
+    const userStore = useUserStore()
+    try {
+      loading.value = true
+      const dbMarks = await marksApi.getMyMarks(userStore.getUserId())
+      const fetched = dbMarks.map(dbMarkToMark)
+
+      // 用云端数据替换本地
+      const myIds = new Set(fetched.map((m) => m.id))
+      marks.value = marks.value.filter((m) => !myIds.has(m.id))
+      marks.value.push(...fetched)
+    } catch (e) {
+      console.error('[MarkStore] 加载我的标记失败:', e)
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 初始化
   init()
 
@@ -148,16 +330,19 @@ export const useMarkStore = defineStore('mark', () => {
     marks,
     allMarks,
     markCount,
+    loading,
     addMark,
     removeMark,
     updateMark,
     getMarkById,
     syncToStorage,
+    fetchPublicMarks,
+    fetchMyMarks,
   }
 })
 
 /**
- * 生成唯一 ID
+ * 生成唯一 ID（本地模式使用）
  */
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8)

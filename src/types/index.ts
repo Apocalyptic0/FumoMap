@@ -12,17 +12,19 @@ export interface Character {
 /** 打卡标记 */
 export interface Mark {
   id: string
-  characterIds: string[] // 关联角色 ID 列表（第一个为主角色，用于地图图标显示）
+  userId?: string          // P1: 创建者用户 ID（云端标记必有，本地标记可选）
+  characterIds: string[]   // 关联角色 ID 列表（第一个为主角色，用于地图图标显示）
   lat: number
   lng: number
-  locationName: string    // 地点名（用户填写）
-  images: string[]        // base64 图片列表（最多 3 张）
+  locationName: string     // 地点名（用户填写）
+  images: string[]         // P0: base64 列表；P1: CDN URL 列表（兼容两种格式）
   description: string
   tags: string[]
-  createdAt: number       // 时间戳
+  visibility?: 'public' | 'private'  // P1: 可见性，默认 public
+  createdAt: number        // 时间戳
   // --- 互动字段（P0 本地计数，P1 迁移到服务端聚合） ---
-  likeCount: number       // 点赞数
-  likedBy: string[]       // 点赞用户 ID 列表
+  likeCount: number        // 点赞数
+  likedBy: string[]        // P0 点赞用户 ID 列表（P1 改为服务端关联表）
 }
 
 /** 创建标记表单数据 */
@@ -56,6 +58,14 @@ export interface LocalUser {
   avatarUrl: string
   bio: string
   createdAt: number
+}
+
+/**
+ * P1 认证用户（扩展本地用户）
+ */
+export interface AuthUser extends LocalUser {
+  email: string
+  isCloudUser: true  // 标识为云端用户
 }
 
 /** 评论 */

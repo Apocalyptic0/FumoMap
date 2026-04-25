@@ -41,7 +41,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useImageCompressor } from '@/composables/useImageCompressor'
+import { useImageCompressor, type CompressResult } from '@/composables/useImageCompressor'
 
 const props = withDefaults(
   defineProps<{
@@ -59,7 +59,13 @@ const emit = defineEmits<{
 
 const images = ref<string[]>([...props.modelValue])
 const fileInput = ref<HTMLInputElement | null>(null)
-const { compressing, progress, compressToBase64 } = useImageCompressor()
+const { compressing, progress, compress } = useImageCompressor()
+
+/**
+ * 压缩后的 File 对象列表（与 images 数组一一对应）
+ * 云端上传时使用：通过 getCompressedFiles() 取出
+ */
+const compressedFiles = ref<(File | null)[]>([])
 
 function triggerUpload() {
   fileInput.value?.click()
@@ -73,9 +79,10 @@ async function handleFileChange(e: Event) {
   const files = Array.from(input.files).slice(0, remaining)
 
   for (const file of files) {
-    const base64 = await compressToBase64(file)
-    if (base64) {
-      images.value.push(base64)
+    const result: CompressResult | null = await compress(file)
+    if (result) {
+      images.value.push(result.base64)
+      compressedFiles.value.push(result.file)
     }
   }
 
@@ -86,8 +93,18 @@ async function handleFileChange(e: Event) {
 
 function removeImage(index: number) {
   images.value.splice(index, 1)
+  compressedFiles.value.splice(index, 1)
   emit('update:modelValue', [...images.value])
 }
+
+/**
+ * 获取压缩后的 File 对象列表（供父组件在云端上传时调用）
+ */
+function getCompressedFiles(): File[] {
+  return compressedFiles.value.filter((f): f is File => f !== null)
+}
+
+defineExpose({ getCompressedFiles })
 </script>
 
 <style lang="scss" scoped>
