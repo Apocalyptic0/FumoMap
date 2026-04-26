@@ -296,11 +296,12 @@ const mark = computed(() => {
 /** 当前用户是否是打卡创建者 */
 const isOwner = computed(() => {
   if (!mark.value) return false
-  // 云端标记通过 userId 判断，本地标记（无 userId）默认允许
+  // 有 userId：严格比对
   if (mark.value.userId) {
     return mark.value.userId === userStore.getUserId()
   }
-  return !userStore.isCloudUser // 本地标记只有本地用户能编辑
+  // P0 旧打卡无 userId：存储在本地 localStorage，属于设备拥有者
+  return true
 })
 
 const liked = computed(() => mark.value ? interactionStore.isLiked(mark.value.id) : false)

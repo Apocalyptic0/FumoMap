@@ -85,7 +85,8 @@ export const useMarkStore = defineStore('mark', () => {
       try {
         loading.value = true
         // 确保 session 就绪
-        await waitForSession(2000)
+        const sessionOk = await waitForSession(2000)
+        console.log('[MarkStore] 云端打卡路径 | session就绪:', sessionOk, '| userId:', userStore.getUserId())
         let imageUrls: string[] = formData.images
 
         // 如果提供了压缩文件，上传到 Storage
@@ -107,6 +108,7 @@ export const useMarkStore = defineStore('mark', () => {
           tags: formData.tags,
           visibility: 'public',
         })
+        console.log('[MarkStore] 云端创建成功 | id:', dbMark.id, '| user_id:', dbMark.user_id)
 
         const mark = dbMarkToMark(dbMark)
         marks.value.push(mark)
@@ -117,6 +119,7 @@ export const useMarkStore = defineStore('mark', () => {
 
         return { success: true, message: '打卡成功！', mark }
       } catch (e: any) {
+        console.error('[MarkStore] 云端创建失败:', e?.message)
         return { success: false, message: e?.message || '创建打卡失败，请重试' }
       } finally {
         loading.value = false
@@ -124,12 +127,14 @@ export const useMarkStore = defineStore('mark', () => {
     }
 
     // === 本地路径（P0 兼容） ===
+    console.log('[MarkStore] 本地打卡路径 | userId:', userStore.getUserId())
     if (isStorageNearFull()) {
       return { success: false, message: '存储空间不足，请删除部分打卡记录后再试' }
     }
 
     const newMark: Mark = {
       id: generateId(),
+      userId: userStore.getUserId(),
       characterIds: formData.characterIds,
       lat: formData.lat,
       lng: formData.lng,
