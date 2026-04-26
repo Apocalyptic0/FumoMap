@@ -43,11 +43,19 @@ export const useUserStore = defineStore('user', () => {
    * 初始化：优先恢复 Supabase session，否则降级 localStorage
    */
   async function init() {
+    console.log('[UserStore] init 开始 | isSupabaseReady:', isSupabaseReady())
     if (isSupabaseReady()) {
       // 始终注册认证状态监听器
       authApi.onAuthStateChange(async (event, newSession) => {
-        if (event === 'SIGNED_OUT' || !newSession) {
+        console.log('[UserStore] onAuthStateChange 触发 | event:', event, '| hasSession:', !!newSession)
+        if (event === 'SIGNED_OUT') {
           resetToLocal()
+        } else if (event === 'INITIAL_SESSION' && !newSession) {
+          // 初始化时无 session，加载本地用户（不覆盖已登录状态）
+          if (!isCloudUser.value) {
+            loadLocalUser()
+            authReady.value = true
+          }
         } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && newSession?.user) {
           await loadCloudProfile(newSession.user.id, newSession.user.email ?? '')
         }
@@ -55,10 +63,12 @@ export const useUserStore = defineStore('user', () => {
 
       try {
         const session = await authApi.getSession()
+        console.log('[UserStore] getSession 结果 | hasSession:', !!session, '| userId:', session?.user?.id)
         if (session?.user) {
           await waitForSession()
           await loadCloudProfile(session.user.id, session.user.email ?? '')
           authReady.value = true
+          console.log('[UserStore] 云端 session 恢复成功 | isCloudUser:', isCloudUser.value)
           return
         }
       } catch (e) {
@@ -69,6 +79,7 @@ export const useUserStore = defineStore('user', () => {
     // 降级：从 localStorage 加载本地用户
     loadLocalUser()
     authReady.value = true
+    console.log('[UserStore] init 完成（本地模式）| userId:', currentUser.value.id)
   }
 
   /** 加载本地用户 */
@@ -126,10 +137,13 @@ export const useUserStore = defineStore('user', () => {
     authLoading.value = true
     try {
       const result = await authApi.login(email, password)
+      console.log('[UserStore] login 结果 | success:', result.success, '| userId:', result.user?.id)
       if (result.success && result.user) {
         // 等待 Supabase session 完全就绪，确保后续请求携带 token
-        await waitForSession()
+        const sessionOk = await waitForSession()
+        console.log('[UserStore] login waitForSession:', sessionOk)
         await loadCloudProfile(result.user.id, email)
+        console.log('[UserStore] login 完成 | isCloudUser:', isCloudUser.value, '| userId:', currentUser.value.id)
       }
       return result
     } finally {
@@ -147,6 +161,7 @@ export const useUserStore = defineStore('user', () => {
 
   /** 重置为本地用户 */
   function resetToLocal() {
+    console.log('[UserStore] resetToLocal | 之前 isCloudUser:', isCloudUser.value)
     currentUser.value = { ...DEFAULT_USER, createdAt: Date.now() }
     syncToStorage()
   }
@@ -156,6 +171,7 @@ export const useUserStore = defineStore('user', () => {
    * 云端用户调 API + 乐观更新；本地用户直接写 localStorage
    */
   async function updateProfile(updates: Partial<Pick<LocalUser, 'nickname' | 'bio' | 'avatarUrl'>>) {
+    console.log('[UserStore] updateProfile | isCloudUser:', isCloudUser.value, '| userId:', currentUser.value.id)
     const old = { ...currentUser.value }
 
     // 乐观更新
