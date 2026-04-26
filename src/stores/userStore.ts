@@ -5,6 +5,7 @@ import { getItem, setItem } from '@/utils/storage'
 import { generatePlaceholderAvatar } from '@/utils/placeholder'
 import { isSupabaseReady, waitForSession } from '@/api/client'
 import * as authApi from '@/api/auth'
+import { supabase } from '@/api/client'
 
 const STORAGE_KEY = 'user_profile'
 
@@ -93,9 +94,22 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
-  /** 加载云端 profile */
+  /** 加载云端 profile，不存在则自动创建 */
   async function loadCloudProfile(userId: string, email: string) {
-    const profile = await authApi.getProfile(userId)
+    let profile = await authApi.getProfile(userId)
+
+    // profiles 表没有记录 → 自动补建（兼容注册时 insert 失败的场景）
+    if (!profile) {
+      console.log('[UserStore] profiles 无记录，自动创建 | userId:', userId)
+      try {
+        const nickname = email.split('@')[0] ?? 'Fumo旅行者'
+        await supabase.from('profiles').insert({ id: userId, nickname })
+        profile = await authApi.getProfile(userId)
+      } catch (e) {
+        console.warn('[UserStore] 自动创建 profile 失败:', e)
+      }
+    }
+
     const authUser: AuthUser = {
       id: userId,
       email,
