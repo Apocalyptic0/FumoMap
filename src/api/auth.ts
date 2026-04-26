@@ -117,7 +117,10 @@ export async function getProfile(userId: string) {
     .eq('id', userId)
     .single()
 
-  if (error) return null
+  if (error) {
+    console.error('[Auth] getProfile 失败 | code:', error.code, '| message:', error.message, '| details:', error.details, '| hint:', error.hint)
+    return null
+  }
   return data
 }
 
@@ -135,7 +138,10 @@ export async function updateProfile(
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) {
+    console.error('[Auth] updateProfile 失败 | code:', error.code, '| message:', error.message, '| details:', error.details, '| hint:', error.hint)
+    throw new Error(error.message)
+  }
   return data
 }
 
