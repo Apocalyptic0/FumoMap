@@ -4,7 +4,7 @@ import type { Mark, MarkFormData } from '@/types'
 import { getItem, setItem, isStorageNearFull } from '@/utils/storage'
 import { useCharacterStore } from './characterStore'
 import { useUserStore } from './userStore'
-import { isSupabaseReady } from '@/api/client'
+import { isSupabaseReady, waitForSession } from '@/api/client'
 import * as marksApi from '@/api/marks'
 import * as storageApi from '@/api/storage'
 import type { DbMark } from '@/api/marks'
@@ -84,6 +84,8 @@ export const useMarkStore = defineStore('mark', () => {
       // === 云端路径 ===
       try {
         loading.value = true
+        // 确保 session 就绪
+        await waitForSession(2000)
         let imageUrls: string[] = formData.images
 
         // 如果提供了压缩文件，上传到 Storage
@@ -95,6 +97,7 @@ export const useMarkStore = defineStore('mark', () => {
         }
 
         const dbMark = await marksApi.createMark({
+          user_id: userStore.getUserId(),
           character_ids: formData.characterIds,
           lat: formData.lat,
           lng: formData.lng,
@@ -280,7 +283,7 @@ export const useMarkStore = defineStore('mark', () => {
    * 从云端加载公开标记（P1 新增）
    */
   async function fetchPublicMarks(): Promise<void> {
-    if (!shouldUseCloud()) return
+    if (!isSupabaseReady()) return
     try {
       loading.value = true
       const dbMarks = await marksApi.getPublicMarks()

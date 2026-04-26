@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import type { LocalUser, AuthUser } from '@/types'
 import { getItem, setItem } from '@/utils/storage'
 import { generatePlaceholderAvatar } from '@/utils/placeholder'
-import { isSupabaseReady } from '@/api/client'
+import { isSupabaseReady, waitForSession } from '@/api/client'
 import * as authApi from '@/api/auth'
 
 const STORAGE_KEY = 'user_profile'
@@ -44,18 +44,20 @@ export const useUserStore = defineStore('user', () => {
    */
   async function init() {
     if (isSupabaseReady()) {
+      // 始终注册认证状态监听器
+      authApi.onAuthStateChange(async (event, newSession) => {
+        if (event === 'SIGNED_OUT' || !newSession) {
+          resetToLocal()
+        } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && newSession?.user) {
+          await loadCloudProfile(newSession.user.id, newSession.user.email ?? '')
+        }
+      })
+
       try {
         const session = await authApi.getSession()
         if (session?.user) {
+          await waitForSession()
           await loadCloudProfile(session.user.id, session.user.email ?? '')
-          // 监听认证状态变化
-          authApi.onAuthStateChange(async (event, newSession) => {
-            if (event === 'SIGNED_OUT' || !newSession) {
-              resetToLocal()
-            } else if (event === 'SIGNED_IN' && newSession?.user) {
-              await loadCloudProfile(newSession.user.id, newSession.user.email ?? '')
-            }
-          })
           authReady.value = true
           return
         }
@@ -106,7 +108,9 @@ export const useUserStore = defineStore('user', () => {
     authLoading.value = true
     try {
       const result = await authApi.register(email, password, nickname)
-      if (result.success && result.user) {
+      if (result.success && result.user && result.session) {
+        // 有 session 说明不需要邮箱验证，直接进入登录态
+        await waitForSession()
         await loadCloudProfile(result.user.id, email)
       }
       return result
@@ -123,6 +127,8 @@ export const useUserStore = defineStore('user', () => {
     try {
       const result = await authApi.login(email, password)
       if (result.success && result.user) {
+        // 等待 Supabase session 完全就绪，确保后续请求携带 token
+        await waitForSession()
         await loadCloudProfile(result.user.id, email)
       }
       return result
@@ -159,6 +165,8 @@ export const useUserStore = defineStore('user', () => {
 
     if (isCloudUser.value) {
       try {
+        // 确保 session 可用，避免 RLS 因 token 缺失拒绝
+        await waitForSession(2000)
         await authApi.updateProfile(currentUser.value.id, {
           nickname: updates.nickname,
           bio: updates.bio,

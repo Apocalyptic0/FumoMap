@@ -290,6 +290,13 @@ onMounted(async () => {
     displayCenter.value = pos
   }
 
+  // 拉取云端公开打卡（所有用户均可）
+  markStore.fetchPublicMarks()
+  // 云端用户额外拉取自己的打卡
+  if (userStore.isCloudUser) {
+    markStore.fetchMyMarks()
+  }
+
   document.addEventListener('keydown', onKeydown)
 })
 

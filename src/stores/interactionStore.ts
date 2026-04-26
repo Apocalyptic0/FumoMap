@@ -4,7 +4,7 @@ import type { Comment, ViewRecord, FavoriteRecord } from '@/types'
 import { getItem, setItem } from '@/utils/storage'
 import { useUserStore } from './userStore'
 import { useMarkStore } from './markStore'
-import { isSupabaseReady } from '@/api/client'
+import { isSupabaseReady, waitForSession } from '@/api/client'
 import * as interactionsApi from '@/api/interactions'
 
 const STORAGE_KEYS = {
@@ -100,6 +100,8 @@ export const useInteractionStore = defineStore('interaction', () => {
     if (!mark) return false
 
     if (shouldUseCloud()) {
+      // 确保 session 就绪
+      await waitForSession(2000)
       // 乐观更新
       const wasLiked = likedCache.value.get(markId) ?? false
       likedCache.value.set(markId, !wasLiked)
@@ -172,6 +174,8 @@ export const useInteractionStore = defineStore('interaction', () => {
 
     if (shouldUseCloud()) {
       try {
+        // 确保 session 就绪
+        await waitForSession(2000)
         const dbComment = await interactionsApi.addComment(markId, userStore.getUserId(), trimmed)
         const comment: Comment = {
           id: dbComment.id,
@@ -306,6 +310,8 @@ export const useInteractionStore = defineStore('interaction', () => {
    */
   async function toggleFavorite(markId: string): Promise<boolean> {
     if (shouldUseCloud()) {
+      // 确保 session 就绪
+      await waitForSession(2000)
       const userStore = useUserStore()
       const wasFavorited = favoritedCache.value.get(markId) ?? false
 

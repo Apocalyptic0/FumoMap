@@ -31,10 +31,11 @@ export function validateEmail(email: string): { valid: boolean; message: string 
 
 /**
  * 校验密码强度
+ * Supabase 要求最少 6 位，前端同步
  */
 export function validatePassword(password: string): { valid: boolean; message: string } {
   if (!password) return { valid: false, message: '请输入密码' }
-  if (password.length < 8) return { valid: false, message: '密码至少8位' }
+  if (password.length < 6) return { valid: false, message: '密码至少6位' }
   return { valid: true, message: '' }
 }
 

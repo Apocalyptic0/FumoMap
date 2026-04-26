@@ -4,6 +4,7 @@ import { supabase } from './client'
  * 创建打卡标记（云端 marks 表）
  */
 export interface CreateMarkPayload {
+  user_id?: string            // 云端写入时显式传入，确保 RLS 通过
   character_ids: string[]
   lat: number
   lng: number

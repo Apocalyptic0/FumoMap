@@ -39,11 +39,20 @@ export async function register(
     // 不阻断注册流程，后续可补建
   }
 
+  // 如果没有 session，说明需要邮箱验证
+  if (!data.session) {
+    return {
+      success: true,
+      message: '注册成功！请查收验证邮件后再登录',
+      user: data.user,
+    }
+  }
+
   return {
     success: true,
     message: '注册成功',
     user: data.user,
-    session: data.session ?? undefined,
+    session: data.session,
   }
 }
 

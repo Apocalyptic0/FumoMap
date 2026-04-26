@@ -23,3 +23,22 @@ export const supabase: SupabaseClient = createClient(supabaseUrl || '', supabase
 export function isSupabaseReady(): boolean {
   return !!(supabaseUrl && supabasePublishableKey)
 }
+
+/**
+ * 等待 Supabase session 就绪
+ *
+ * 登录/注册后，Supabase SDK 内部 session 写入 localStorage 是异步的，
+ * 立即发起带 RLS 的请求可能因 token 未同步而失败（auth.uid() 返回 null）。
+ * 此函数轮询 getSession 直到返回有效 session 或超时。
+ */
+export async function waitForSession(timeoutMs = 5000): Promise<boolean> {
+  const start = Date.now()
+  while (Date.now() - start < timeoutMs) {
+    const { data } = await supabase.auth.getSession()
+    if (data.session?.access_token) return true
+    // 短暂等待后重试
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  console.warn('[Client] waitForSession 超时')
+  return false
+}
