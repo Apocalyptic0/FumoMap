@@ -129,16 +129,29 @@ export async function toggleFavorite(markId: string, userId: string): Promise<bo
 }
 
 /**
- * 获取用户收藏的标记 ID 列表
+ * 获取用户收藏列表（含时间戳）
  */
-export async function getFavoriteMarkIds(userId: string): Promise<string[]> {
+export async function getFavorites(userId: string): Promise<{ mark_id: string; created_at: string }[]> {
   const { data } = await supabase
     .from('favorites')
-    .select('mark_id')
+    .select('mark_id, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
 
-  return (data ?? []).map((f) => f.mark_id)
+  return (data ?? []) as { mark_id: string; created_at: string }[]
+}
+
+/**
+ * 检查是否已收藏
+ */
+export async function isFavorited(markId: string, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('mark_id', markId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  return !!data
 }
 
 // ========== 浏览记录 ==========

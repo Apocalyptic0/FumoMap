@@ -16,7 +16,7 @@
           maxlength="500"
           rows="1"
           @input="autoResize"
-          @keydown.enter.exact="handleSend"
+          @keydown.enter.exact.prevent="handleSend"
         ></textarea>
         <button
           class="send-btn"
@@ -101,26 +101,36 @@ function autoResize() {
   el.style.height = Math.min(el.scrollHeight, 120) + 'px'
 }
 
-function handleSend() {
+async function handleSend() {
+  if (!userStore.isCloudUser) {
+    showToast('请先登录后再评论')
+    return
+  }
+
   const content = inputContent.value.trim()
   if (!content) return
 
-  const result = interactionStore.addComment(props.markId, content)
+  const result = await interactionStore.addComment(props.markId, content)
   if (result) {
     inputContent.value = ''
-    // 重置 textarea 高度
     nextTick(() => {
       if (inputRef.value) {
         inputRef.value.style.height = 'auto'
       }
     })
     showToast({ message: '评论成功', type: 'success' })
+  } else {
+    showToast('评论失败，请重试')
   }
 }
 
-function handleDelete(commentId: string) {
-  interactionStore.deleteComment(commentId)
-  showToast({ message: '已删除', type: 'success' })
+async function handleDelete(commentId: string) {
+  const success = await interactionStore.deleteComment(commentId)
+  if (success) {
+    showToast({ message: '已删除', type: 'success' })
+  } else {
+    showToast('删除失败')
+  }
 }
 
 /** 评论时间格式化（30天阈值） */

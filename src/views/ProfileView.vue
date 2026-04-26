@@ -32,7 +32,7 @@
       <!-- 统计数据 -->
       <div class="user-stats">
         <div class="stat-item" @click="activeTab = 'marks'">
-          <span class="stat-num">{{ markStore.markCount }}</span>
+          <span class="stat-num">{{ myMarks.length }}</span>
           <span class="stat-label">打卡</span>
         </div>
         <div class="stat-item" @click="activeTab = 'favorites'">
@@ -54,7 +54,7 @@
         <template v-if="userStore.isCloudUser">
           <div class="auth-status">
             <span class="auth-badge cloud">☁️ 云端用户</span>
-            <span class="auth-email">{{ userStore.currentUser.email }}</span>
+            <span class="auth-email">{{ (userStore.currentUser as any).email }}</span>
           </div>
           <button class="auth-btn logout" @click="handleLogout">退出登录</button>
         </template>
@@ -88,9 +88,9 @@
     <div class="tab-content">
       <!-- 打卡记录 -->
       <div v-if="activeTab === 'marks'" class="tab-panel">
-        <template v-if="markStore.allMarks.length > 0">
+        <template v-if="myMarks.length > 0">
           <MarkCard
-            v-for="m in markStore.allMarks"
+            v-for="m in myMarks"
             :key="m.id"
             :mark="m"
             @click="goToMark(m.id)"
@@ -209,7 +209,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import MarkCard from '@/components/MarkCard.vue'
@@ -224,6 +224,13 @@ const markStore = useMarkStore()
 const interactionStore = useInteractionStore()
 
 const currentUser = computed(() => userStore.currentUser)
+
+// 进入个人页时加载云端数据
+onMounted(() => {
+  if (userStore.isCloudUser) {
+    interactionStore.fetchMyFavorites()
+  }
+})
 
 type TabKey = 'marks' | 'favorites' | 'comments' | 'history'
 const activeTab = ref<TabKey>('marks')
@@ -245,6 +252,16 @@ watch(showEditDialog, (visible) => {
     editNickname.value = currentUser.value.nickname
     editBio.value = currentUser.value.bio
   }
+})
+
+/** 当前用户的打卡 */
+const myMarks = computed(() => {
+  const userId = userStore.getUserId()
+  return markStore.allMarks.filter((m) => {
+    // 云端标记通过 userId 匹配，本地标记（无 userId）在本地用户模式下都显示
+    if (m.userId) return m.userId === userId
+    return !userStore.isCloudUser
+  })
 })
 
 /** 收藏的打卡列表 */
@@ -277,20 +294,23 @@ function goToMark(id: string) {
   router.push(`/mark/${id}`)
 }
 
-function saveProfile() {
+async function saveProfile() {
   const nickname = editNickname.value.trim()
   if (!nickname) {
     showToast('昵称不能为空')
     return
   }
 
-  userStore.updateProfile({
-    nickname,
-    bio: editBio.value.trim(),
-  })
-
-  showEditDialog.value = false
-  showToast({ message: '已保存', type: 'success' })
+  try {
+    await userStore.updateProfile({
+      nickname,
+      bio: editBio.value.trim(),
+    })
+    showEditDialog.value = false
+    showToast({ message: '已保存', type: 'success' })
+  } catch {
+    showToast('保存失败，请重试')
+  }
 }
 
 async function handleLogout() {

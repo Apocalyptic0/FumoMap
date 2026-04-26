@@ -76,6 +76,12 @@
 
     <!-- 下方可滚动内容区 -->
     <div class="detail-body">
+      <!-- 作者信息 -->
+      <div class="author-row" v-if="mark.userId">
+        <span class="author-label">发布者</span>
+        <span class="author-name">{{ authorName }}</span>
+      </div>
+
       <!-- 坐标与时间信息 -->
       <div class="info-row">
         <div class="info-chip">
@@ -178,14 +184,14 @@
 
       <div class="action-divider"></div>
 
-      <!-- 管理区 -->
-      <button class="action-btn action-btn--edit" @click="editMark">
+      <!-- 管理区（仅创建者可见） -->
+      <button v-if="isOwner" class="action-btn action-btn--edit" @click="editMark">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
           <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
         </svg>
       </button>
-      <button class="action-btn action-btn--delete" @click="deleteMark">
+      <button v-if="isOwner" class="action-btn action-btn--delete" @click="deleteMark">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="3 6 5 6 21 6"></polyline>
           <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -258,12 +264,15 @@ import CommentSection from '@/components/CommentSection.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useInteractionStore } from '@/stores/interactionStore'
+import { useUserStore } from '@/stores/userStore'
+import * as authApi from '@/api/auth'
 
 const route = useRoute()
 const router = useRouter()
 const markStore = useMarkStore()
 const characterStore = useCharacterStore()
 const interactionStore = useInteractionStore()
+const userStore = useUserStore()
 
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const currentImageIndex = ref(0)
@@ -272,9 +281,26 @@ const currentImageIndex = ref(0)
 const previewVisible = ref(false)
 const previewIndex = ref(0)
 
+/** 作者昵称 */
+const authorNickname = ref('')
+const authorName = computed(() => {
+  if (mark.value?.userId === userStore.getUserId()) return userStore.currentUser.nickname
+  return authorNickname.value || '旅行者'
+})
+
 const mark = computed(() => {
   const id = route.params.id as string
   return markStore.getMarkById(id) ?? null
+})
+
+/** 当前用户是否是打卡创建者 */
+const isOwner = computed(() => {
+  if (!mark.value) return false
+  // 云端标记通过 userId 判断，本地标记（无 userId）默认允许
+  if (mark.value.userId) {
+    return mark.value.userId === userStore.getUserId()
+  }
+  return !userStore.isCloudUser // 本地标记只有本地用户能编辑
 })
 
 const liked = computed(() => mark.value ? interactionStore.isLiked(mark.value.id) : false)
@@ -290,10 +316,27 @@ watch(() => route.params.id, () => {
   }
 })
 
-// 首次进入记录浏览
-onMounted(() => {
+// 首次进入记录浏览 + 加载云端互动数据
+onMounted(async () => {
   if (mark.value) {
     interactionStore.addViewRecord(mark.value.id)
+    // 云端用户：并行加载点赞状态、收藏状态和评论
+    const tasks: Promise<void>[] = [
+      interactionStore.fetchLikeStatus(mark.value.id),
+      interactionStore.fetchFavoriteStatus(mark.value.id),
+      interactionStore.fetchComments(mark.value.id),
+    ]
+    // 加载作者昵称
+    if (mark.value.userId) {
+      if (mark.value.userId !== userStore.getUserId()) {
+        tasks.push(
+          authApi.getProfile(mark.value.userId).then((profile) => {
+            authorNickname.value = profile?.nickname ?? '旅行者'
+          })
+        )
+      }
+    }
+    await Promise.all(tasks)
   }
 })
 
@@ -322,18 +365,34 @@ function formatTime(timestamp: number): string {
 
 // --- 互动操作 ---
 
-function handleLike() {
+async function handleLike() {
   if (!mark.value) return
+  if (!userStore.isCloudUser) {
+    showToast('请先登录后再点赞')
+    return
+  }
   const wasLiked = liked.value
-  interactionStore.toggleLike(mark.value.id)
-  showToast({ message: wasLiked ? '已取消点赞' : '已点赞', type: 'success' })
+  const success = await interactionStore.toggleLike(mark.value.id)
+  if (success) {
+    showToast({ message: wasLiked ? '已取消点赞' : '已点赞', type: 'success' })
+  } else {
+    showToast('操作失败，请重试')
+  }
 }
 
-function handleFavorite() {
+async function handleFavorite() {
   if (!mark.value) return
+  if (!userStore.isCloudUser) {
+    showToast('请先登录后再收藏')
+    return
+  }
   const wasFavorited = favorited.value
-  interactionStore.toggleFavorite(mark.value.id)
-  showToast({ message: wasFavorited ? '已取消收藏' : '已收藏', type: 'success' })
+  const success = await interactionStore.toggleFavorite(mark.value.id)
+  if (success) {
+    showToast({ message: wasFavorited ? '已取消收藏' : '已收藏', type: 'success' })
+  } else {
+    showToast('操作失败，请重试')
+  }
 }
 
 function toggleComments() {
@@ -414,7 +473,7 @@ async function deleteMark() {
     interactionStore.cleanupForMark(markId)
     // 先跳转再删除，避免 mark 变 null 导致白屏
     await router.replace('/')
-    markStore.removeMark(markId)
+    await markStore.removeMark(markId)
     showToast({ message: '已删除', type: 'success' })
   } catch {
     // 用户取消
@@ -615,6 +674,27 @@ async function deleteMark() {
   display: flex;
   flex-direction: column;
   gap: $spacing-md;
+}
+
+// 作者信息
+.author-row {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+  padding: $spacing-sm $spacing-md;
+  background: $bg-card;
+  border-radius: $radius-md;
+
+  .author-label {
+    font-size: $font-size-xs;
+    color: $text-tertiary;
+  }
+
+  .author-name {
+    font-size: $font-size-sm;
+    font-weight: 600;
+    color: $color-primary-dark;
+  }
 }
 
 // 坐标与时间信息条

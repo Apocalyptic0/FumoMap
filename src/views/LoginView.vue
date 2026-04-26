@@ -116,6 +116,7 @@ function skipLogin() {
 
 <style lang="scss" scoped>
 @use '@/styles/variables' as *;
+@use '@/styles/auth.scss';
 
 .login-view {
   width: 100%;
@@ -127,132 +128,12 @@ function skipLogin() {
   padding: $spacing-lg;
 }
 
-.auth-card {
-  width: 100%;
-  max-width: 400px;
-  background: $bg-card;
-  border-radius: $radius-xl;
-  padding: $spacing-xxl;
-  box-shadow: $shadow-md;
-}
-
-.auth-header {
-  text-align: center;
-  margin-bottom: $spacing-xl;
-
-  .auth-logo {
-    font-size: $font-size-xxl;
-    font-weight: 700;
-    background: linear-gradient(135deg, $color-primary-dark, $color-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin: 0 0 $spacing-xs;
-  }
-
-  .auth-subtitle {
-    font-size: $font-size-sm;
-    color: $text-tertiary;
-    margin: 0;
-  }
-}
-
 .auth-form {
-  display: flex;
-  flex-direction: column;
   gap: $spacing-lg;
 }
 
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-xs;
-
-  .field-label {
-    font-size: $font-size-sm;
-    font-weight: 600;
-    color: $text-secondary;
-  }
-
-  .field-input {
-    width: 100%;
-    height: 44px;
-    padding: 0 $spacing-lg;
-    border: 1.5px solid $border-color;
-    border-radius: $radius-md;
-    font-size: $font-size-base;
-    color: $text-primary;
-    background: $bg-primary;
-    outline: none;
-    transition: border-color $transition-fast;
-    box-sizing: border-box;
-
-    &::placeholder {
-      color: $text-placeholder;
-    }
-
-    &:focus {
-      border-color: $color-primary;
-      box-shadow: 0 0 0 3px rgba(184, 169, 232, 0.15);
-    }
-
-    &:disabled {
-      opacity: 0.6;
-    }
-  }
-}
-
 .auth-btn {
-  width: 100%;
-  height: 48px;
-  border: none;
-  border-radius: $radius-md;
-  background: linear-gradient(135deg, $color-primary-dark, $color-primary);
-  color: white;
-  font-size: $font-size-base;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all $transition-fast;
-
-  &:hover:not(:disabled) {
-    box-shadow: $shadow-md;
-    transform: translateY(-1px);
-  }
-
-  &:active:not(:disabled) {
-    transform: scale(0.98);
-  }
-
-  &:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  &--loading .btn-loading {
-    display: inline-block;
-    animation: spin 1s linear infinite;
-  }
-}
-
-.auth-footer {
-  text-align: center;
-  margin-top: $spacing-lg;
-
-  .footer-text {
-    font-size: $font-size-sm;
-    color: $text-tertiary;
-  }
-
-  .footer-link {
-    font-size: $font-size-sm;
-    color: $color-primary-dark;
-    text-decoration: none;
-    font-weight: 500;
-
-    &:hover {
-      text-decoration: underline;
-    }
-  }
+  margin-top: 0;
 }
 
 .skip-btn {
@@ -270,10 +151,5 @@ function skipLogin() {
   &:hover {
     color: $text-secondary;
   }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 </style>

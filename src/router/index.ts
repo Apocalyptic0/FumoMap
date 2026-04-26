@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { useUserStore } from '@/stores/userStore'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -40,6 +41,16 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// 导航守卫：已登录云端用户不可访问 guest 页面（登录/注册）
+router.beforeEach((to) => {
+  if (to.meta.guest) {
+    const userStore = useUserStore()
+    if (userStore.isCloudUser) {
+      return { path: '/' }
+    }
+  }
 })
 
 export default router
