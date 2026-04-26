@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
+import { watch } from 'vue'
 import { useUserStore } from '@/stores/userStore'
 
 const routes: RouteRecordRaw[] = [
@@ -44,12 +45,27 @@ const router = createRouter({
 })
 
 // 导航守卫：已登录云端用户不可访问 guest 页面（登录/注册）
-router.beforeEach((to) => {
-  if (to.meta.guest) {
-    const userStore = useUserStore()
-    if (userStore.isCloudUser) {
-      return { path: '/' }
-    }
+// 同时等待 authReady，确保 isCloudUser 状态已初始化
+router.beforeEach(async (to) => {
+  const userStore = useUserStore()
+  // 等待认证初始化完成（首次加载时 onAuthStateChange 可能尚未触发）
+  if (!userStore.authReady) {
+    await new Promise<void>((resolve) => {
+      const unwatch = watch(() => userStore.authReady, (ready) => {
+        if (ready) {
+          unwatch()
+          resolve()
+        }
+      })
+      // 超时兜底 3s
+      setTimeout(() => {
+        unwatch()
+        resolve()
+      }, 3000)
+    })
+  }
+  if (to.meta.guest && userStore.isCloudUser) {
+    return { path: '/' }
   }
 })
 

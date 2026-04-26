@@ -269,11 +269,14 @@ export const useMarkStore = defineStore('mark', () => {
     return { success: true, message: '更新成功！' }
   }
 
+  /** ID → Mark 索引（O(1) 查找） */
+  const marksById = computed(() => new Map(marks.value.map((m) => [m.id, m] as [string, Mark])))
+
   /**
    * 根据 ID 获取标记
    */
   function getMarkById(id: string): Mark | undefined {
-    return marks.value.find((m) => m.id === id)
+    return marksById.value.get(id)
   }
 
   /** 所有标记（按时间倒序） */
@@ -294,14 +297,12 @@ export const useMarkStore = defineStore('mark', () => {
       const dbMarks = await marksApi.getPublicMarks()
       const fetched = dbMarks.map(dbMarkToMark)
 
-      // 合并：以 id 去重，云端数据覆盖本地
-      const idSet = new Set(marks.value.map((m) => m.id))
+      // 合并：云端数据覆盖本地，新增的追加
+      const map = new Map(marks.value.map((m) => [m.id, m] as [string, Mark]))
       for (const m of fetched) {
-        if (!idSet.has(m.id)) {
-          marks.value.push(m)
-          idSet.add(m.id)
-        }
+        map.set(m.id, m) // 云端数据覆盖本地
       }
+      marks.value = [...map.values()]
     } catch (e) {
       console.error('[MarkStore] 加载公开标记失败:', e)
     } finally {

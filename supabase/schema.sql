@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS comments (
   id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   mark_id     UUID REFERENCES marks(id) ON DELETE CASCADE NOT NULL,
   user_id     UUID REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  content     TEXT NOT NULL,
+  content     TEXT NOT NULL CHECK (char_length(content) BETWEEN 1 AND 500),
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -3,7 +3,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string
 
-console.log('[Client] Supabase 初始化 | URL:', supabaseUrl, '| Key前缀:', supabaseAnonKey?.substring(0, 10), '| Key长度:', supabaseAnonKey?.length)
+if (import.meta.env.DEV) {
+  console.log('[Client] Supabase 初始化 | URL:', supabaseUrl, '| Key长度:', supabaseAnonKey?.length)
+}
 
 /**
  * Supabase 客户端单例

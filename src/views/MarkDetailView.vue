@@ -265,6 +265,7 @@ import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useInteractionStore } from '@/stores/interactionStore'
 import { useUserStore } from '@/stores/userStore'
+import { formatRelativeTime } from '@/utils/formatTime'
 import * as authApi from '@/api/auth'
 
 const route = useRoute()
@@ -300,8 +301,8 @@ const isOwner = computed(() => {
   if (mark.value.userId) {
     return mark.value.userId === userStore.getUserId()
   }
-  // P0 旧打卡无 userId：存储在本地 localStorage，属于设备拥有者
-  return true
+  // P0 旧打卡无 userId：仅本地用户（非云端用户）可编辑
+  return !userStore.isCloudUser
 })
 
 const liked = computed(() => mark.value ? interactionStore.isLiked(mark.value.id) : false)
@@ -355,13 +356,7 @@ const extraCharacters = computed(() => {
 })
 
 function formatTime(timestamp: number): string {
-  const date = new Date(timestamp)
-  return date.toLocaleDateString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return formatRelativeTime(timestamp)
 }
 
 // --- 互动操作 ---

@@ -294,13 +294,17 @@ export const useInteractionStore = defineStore('interaction', () => {
     return commentCountMap.value.get(markId) ?? 0
   }
 
-  /** 获取当前用户的所有评论（按时间倒序） */
+  /** 获取当前用户的所有评论（按时间倒序） — 从 commentsMap 中提取避免全量 filter */
   const myComments = computed(() => {
     const userStore = useUserStore()
     const userId = userStore.getUserId()
-    return [...comments.value]
-      .filter((c) => c.userId === userId)
-      .sort((a, b) => b.createdAt - a.createdAt)
+    const result: Comment[] = []
+    for (const list of commentsMap.value.values()) {
+      for (const c of list) {
+        if (c.userId === userId) result.push(c)
+      }
+    }
+    return result.sort((a, b) => b.createdAt - a.createdAt)
   })
 
   // ========== 收藏 ==========
