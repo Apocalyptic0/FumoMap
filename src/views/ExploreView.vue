@@ -105,31 +105,35 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { Mark } from '@/types'
 import MarkCard from '@/components/MarkCard.vue'
 import { useMarkStore } from '@/stores/markStore'
-import { useCharacterStore } from '@/stores/characterStore'
 import { useUserStore } from '@/stores/userStore'
+import { useMarkFilter } from '@/composables/useMarkFilter'
 
 const router = useRouter()
 const markStore = useMarkStore()
-const characterStore = useCharacterStore()
 const userStore = useUserStore()
 
 const sortMode = ref<'latest' | 'hot'>('latest')
 const searchKeyword = ref('')
+const debouncedKeyword = ref('')
 const selectedCharId = ref('')
 
-const loading = computed(() => markStore.loading)
-
-/** 有打卡记录的角色列表 */
-const charactersWithMarks = computed(() => {
-  const charIdsWithMarks = new Set<string>()
-  markStore.visibleMarks.forEach((m) => m.characterIds.forEach((id) => charIdsWithMarks.add(id)))
-  return characterStore.characters.filter((c) => charIdsWithMarks.has(c.id))
+// 防抖：搜索输入 300ms 后才更新过滤
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+watch(searchKeyword, (val) => {
+  if (debounceTimer) clearTimeout(debounceTimer)
+  debounceTimer = setTimeout(() => {
+    debouncedKeyword.value = val
+  }, 300)
 })
+
+const { charactersWithMarks, filterByKeyword } = useMarkFilter(debouncedKeyword)
+
+const loading = computed(() => markStore.loading)
 
 /** 搜索 + 角色筛选 + 排序后的列表 */
 const filteredMarks = computed(() => {
@@ -141,22 +145,7 @@ const filteredMarks = computed(() => {
   }
 
   // 关键词搜索
-  const kw = searchKeyword.value.toLowerCase().trim()
-  if (kw) {
-    results = results.filter((m) => {
-      if (m.locationName.toLowerCase().includes(kw)) return true
-      if (m.description.toLowerCase().includes(kw)) return true
-      if (m.tags.some((t) => t.toLowerCase().includes(kw))) return true
-      return m.characterIds.some((id) => {
-        const char = characterStore.getCharacterById(id)
-        return (
-          char &&
-          (char.name.toLowerCase().includes(kw) ||
-            char.nameEn.toLowerCase().includes(kw))
-        )
-      })
-    })
-  }
+  results = filterByKeyword(results)
 
   // 排序
   if (sortMode.value === 'hot') {

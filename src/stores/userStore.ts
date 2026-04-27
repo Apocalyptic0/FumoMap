@@ -44,7 +44,7 @@ export const useUserStore = defineStore('user', () => {
    * 初始化：优先恢复 Supabase session，否则降级 localStorage
    */
   async function init() {
-    console.log('[UserStore] init 开始 | isSupabaseReady:', isSupabaseReady())
+    if (import.meta.env.DEV) console.log('[UserStore] init 开始 | isSupabaseReady:', isSupabaseReady())
     if (isSupabaseReady()) {
       // 始终注册认证状态监听器
       authApi.onAuthStateChange(async (event, newSession) => {

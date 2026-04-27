@@ -135,6 +135,7 @@ import { useMarkStore } from '@/stores/markStore'
 import { useCharacterStore } from '@/stores/characterStore'
 import { useUserStore } from '@/stores/userStore'
 import { useGeolocation } from '@/composables/useGeolocation'
+import { useMarkFilter } from '@/composables/useMarkFilter'
 
 const route = useRoute()
 const router = useRouter()
@@ -162,35 +163,11 @@ provide('mapCenter', mapCenter)
 
 // --- 搜索与过滤逻辑 ---
 
-/** 有打卡记录的角色列表（用于筛选面板） */
-const charactersWithMarks = computed(() => {
-  const charIdsWithMarks = new Set<string>()
-  markStore.visibleMarks.forEach((m) => m.characterIds.forEach((id) => charIdsWithMarks.add(id)))
-  return characterStore.characters.filter((c) => charIdsWithMarks.has(c.id))
-})
+const { charactersWithMarks, filterByKeyword } = useMarkFilter(searchKeyword)
 
 /** 搜索结果：按关键词过滤 */
 const searchResults = computed(() => {
-  let results = markStore.visibleMarks
-
-  // 关键词搜索
-  const kw = searchKeyword.value.toLowerCase().trim()
-  if (kw) {
-    results = results.filter((m) => {
-      if (m.locationName.toLowerCase().includes(kw)) return true
-      if (m.description.toLowerCase().includes(kw)) return true
-      if (m.tags.some((t) => t.toLowerCase().includes(kw))) return true
-      return m.characterIds.some((id) => {
-        const char = characterStore.getCharacterById(id)
-        return (
-          char &&
-          (char.name.toLowerCase().includes(kw) ||
-            char.nameEn.toLowerCase().includes(kw))
-        )
-      })
-    })
-  }
-
+  const results = filterByKeyword(markStore.visibleMarks)
   return [...results].sort((a, b) => b.createdAt - a.createdAt)
 })
 

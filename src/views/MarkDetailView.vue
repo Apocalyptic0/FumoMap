@@ -94,7 +94,7 @@
         </div>
         <div class="info-chip">
           <span class="chip-label">时间</span>
-          <span class="chip-value">{{ formatTime(mark.createdAt) }}</span>
+          <span class="chip-value">{{ formatRelativeTime(mark.createdAt) }}</span>
         </div>
       </div>
 
@@ -359,10 +359,6 @@ const extraCharacters = computed(() => {
     .map((id) => characterStore.getCharacterById(id))
     .filter(Boolean) as NonNullable<ReturnType<typeof characterStore.getCharacterById>>[]
 })
-
-function formatTime(timestamp: number): string {
-  return formatRelativeTime(timestamp)
-}
 
 // --- 互动操作 ---
 

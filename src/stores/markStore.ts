@@ -127,7 +127,7 @@ export const useMarkStore = defineStore('mark', () => {
     }
 
     // === 本地路径（P0 兼容） ===
-    console.log('[MarkStore] 本地打卡路径 | userId:', userStore.getUserId())
+    if (import.meta.env.DEV) console.log('[MarkStore] 本地打卡路径')
     if (isStorageNearFull()) {
       return { success: false, message: '存储空间不足，请删除部分打卡记录后再试' }
     }
@@ -288,14 +288,19 @@ export const useMarkStore = defineStore('mark', () => {
   /**
    * 可见标记列表（供地图和列表展示）
    * - 所有用户都能看到在线（非离线）打卡
-   * - 离线打卡仅在同设备（同localStorage）上可见
+   * - 离线打卡仅在同设备上可见（按 userId 匹配或无 userId 的旧数据）
+   *   注意：登录云端用户后 userId 变为 UUID，旧离线打卡 userId 为 local_user_001，
+   *   此处额外检查 localStorage 中是否存在该打卡（isOffline 只在本地 init 时加载）
    */
   const visibleMarks = computed(() => {
     const userStore = useUserStore()
     const userId = userStore.getUserId()
     return marks.value.filter((m) => {
-      if (!m.isOffline) return true   // 在线打卡：所有用户可见
-      return m.userId === userId       // 离线打卡：仅创建者本设备可见
+      if (!m.isOffline) return true           // 在线打卡：所有用户可见
+      if (m.userId === userId) return true     // 离线打卡：创建者匹配
+      // 旧离线打卡无 userId 或 userId 是 P0 默认值：同设备本地数据，允许可见
+      if (!m.userId || m.userId === 'local_user_001') return true
+      return false
     })
   })
 

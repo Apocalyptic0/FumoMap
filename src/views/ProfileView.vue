@@ -54,7 +54,7 @@
         <template v-if="userStore.isCloudUser">
           <div class="auth-status">
             <span class="auth-badge cloud">☁️ 云端用户</span>
-            <span class="auth-email">{{ (userStore.currentUser as any).email }}</span>
+            <span class="auth-email">{{ cloudEmail }}</span>
           </div>
           <button class="auth-btn logout" @click="handleLogout">退出登录</button>
         </template>
@@ -217,6 +217,7 @@ import { useUserStore } from '@/stores/userStore'
 import { useMarkStore } from '@/stores/markStore'
 import { useInteractionStore } from '@/stores/interactionStore'
 import { formatRelativeTime } from '@/utils/formatTime'
+import type { AuthUser } from '@/types'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -224,6 +225,9 @@ const markStore = useMarkStore()
 const interactionStore = useInteractionStore()
 
 const currentUser = computed(() => userStore.currentUser)
+const cloudEmail = computed(() =>
+  userStore.isCloudUser ? (userStore.currentUser as AuthUser).email : ''
+)
 
 // 进入个人页时加载云端数据
 onMounted(() => {
