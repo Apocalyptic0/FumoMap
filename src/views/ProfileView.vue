@@ -314,6 +314,7 @@ async function saveProfile() {
 }
 
 async function handleLogout() {
+  interactionStore.clearLocalCache()
   await userStore.logout()
   showToast({ message: '已退出登录', type: 'success' })
 }

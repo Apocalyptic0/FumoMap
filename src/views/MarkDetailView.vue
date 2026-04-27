@@ -62,7 +62,7 @@
         <MapView
           ref="mapViewRef"
           :center="{ lat: mark.lat, lng: mark.lng }"
-          :marks="markStore.marks"
+          :marks="markStore.visibleMarks"
           :get-character="characterStore.getCharacterById"
           @marker-click="onMarkerClick"
         />
@@ -142,8 +142,9 @@
         </div>
       </div>
 
-      <!-- 评论区 -->
+      <!-- 评论区（离线打卡不显示） -->
       <CommentSection
+        v-if="!mark.isOffline"
         :mark-id="mark.id"
       />
     </div>
@@ -151,7 +152,9 @@
     <!-- 底部操作栏 -->
     <div class="action-bar">
       <!-- 互动区 -->
+      <!-- 离线打卡不显示点赞按钮 -->
       <button
+        v-if="!mark.isOffline"
         class="action-btn action-btn--like"
         :class="{ liked: liked }"
         @click="handleLike"
@@ -162,7 +165,9 @@
         <span>{{ mark.likeCount || '' }}</span>
       </button>
 
+      <!-- 离线打卡不显示评论按钮 -->
       <button
+        v-if="!mark.isOffline"
         class="action-btn action-btn--comment"
         @click="toggleComments"
       >
@@ -363,6 +368,10 @@ function formatTime(timestamp: number): string {
 
 async function handleLike() {
   if (!mark.value) return
+  if (mark.value.isOffline) {
+    showToast('离线打卡不支持点赞')
+    return
+  }
   if (!userStore.isCloudUser) {
     showToast('请先登录后再点赞')
     return
@@ -378,10 +387,6 @@ async function handleLike() {
 
 async function handleFavorite() {
   if (!mark.value) return
-  if (!userStore.isCloudUser) {
-    showToast('请先登录后再收藏')
-    return
-  }
   const wasFavorited = favorited.value
   const success = await interactionStore.toggleFavorite(mark.value.id)
   if (success) {

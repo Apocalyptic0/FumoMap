@@ -20,11 +20,11 @@
         ></textarea>
         <button
           class="send-btn"
-          :class="{ active: inputContent.trim() }"
-          :disabled="!inputContent.trim()"
+          :class="{ active: inputContent.trim() && !sending }"
+          :disabled="!inputContent.trim() || sending"
           @click="handleSend"
         >
-          发送
+          {{ sending ? '发送中...' : '发送' }}
         </button>
       </div>
     </div>
@@ -32,11 +32,11 @@
     <!-- 评论列表 -->
     <div class="comment-list" v-if="comments.length > 0">
       <div v-for="comment in comments" :key="comment.id" class="comment-item">
-        <img :src="getUserAvatar(comment.userId)" class="comment-avatar" alt="头像" />
+        <img :src="getUserAvatar(comment.userId, comment.avatarUrl)" class="comment-avatar" alt="头像" />
         <div class="comment-body">
           <div class="comment-meta">
             <span class="comment-author">
-              {{ getUserName(comment.userId) }}
+              {{ getUserName(comment.userId, comment.nickname) }}
               <span v-if="comment.userId === currentUser.id" class="my-tag">我</span>
             </span>
             <span class="comment-time">{{ formatCommentTime(comment.createdAt) }}</span>
@@ -67,6 +67,7 @@ import { showToast } from 'vant'
 import { useUserStore } from '@/stores/userStore'
 import { useInteractionStore } from '@/stores/interactionStore'
 import { formatRelativeTime } from '@/utils/formatTime'
+import { generatePlaceholderAvatar } from '@/utils/placeholder'
 
 const props = defineProps<{
   markId: string
@@ -77,20 +78,21 @@ const interactionStore = useInteractionStore()
 
 const inputRef = ref<HTMLTextAreaElement | null>(null)
 const inputContent = ref('')
+const sending = ref(false)
 
 const currentUser = computed(() => userStore.currentUser)
 const comments = computed(() => interactionStore.getComments(props.markId))
 
-/** 根据 userId 获取昵称（P0 全部是本地用户，P1 从用户缓存查） */
-function getUserName(userId: string): string {
+/** 根据 userId 获取昵称 — 优先使用评论自带的 nickname（来自 profiles 关联查询） */
+function getUserName(userId: string, nickname?: string): string {
   if (userId === currentUser.value.id) return currentUser.value.nickname
-  return '旅行者' // P1: 从用户缓存中查询
+  return nickname || '旅行者'
 }
 
-/** 根据 userId 获取头像 */
-function getUserAvatar(userId: string): string {
+/** 根据 userId 获取头像 — 优先使用评论自带的 avatarUrl */
+function getUserAvatar(userId: string, avatarUrl?: string): string {
   if (userId === currentUser.value.id) return currentUser.value.avatarUrl
-  return currentUser.value.avatarUrl // P0: 暂用默认头像
+  return avatarUrl || generatePlaceholderAvatar('旅行者')
 }
 
 /** textarea 自动高度 */
@@ -110,17 +112,25 @@ async function handleSend() {
   const content = inputContent.value.trim()
   if (!content) return
 
-  const result = await interactionStore.addComment(props.markId, content)
-  if (result) {
-    inputContent.value = ''
-    nextTick(() => {
-      if (inputRef.value) {
-        inputRef.value.style.height = 'auto'
-      }
-    })
-    showToast({ message: '评论成功', type: 'success' })
-  } else {
-    showToast('评论失败，请重试')
+  // 防重复提交
+  if (sending.value) return
+  sending.value = true
+
+  try {
+    const result = await interactionStore.addComment(props.markId, content)
+    if (result) {
+      inputContent.value = ''
+      nextTick(() => {
+        if (inputRef.value) {
+          inputRef.value.style.height = 'auto'
+        }
+      })
+      showToast({ message: '评论成功', type: 'success' })
+    } else {
+      showToast('评论失败，请重试')
+    }
+  } finally {
+    sending.value = false
   }
 }
 

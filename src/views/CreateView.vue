@@ -30,12 +30,12 @@
           <div class="hint-bar"></div>
         </div>
 
-        <!-- 地点名称 -->
+        <!-- 标题 -->
         <div class="form-item location-name-item">
-          <label class="form-label">地点名称</label>
+          <label class="form-label">标题</label>
           <van-field
             v-model="form.locationName"
-            placeholder="给这个地点取个名字吧"
+            placeholder="准备记录点什么"
             :border="false"
             class="form-field"
             @focus="onLocationNameFocus"
@@ -245,7 +245,7 @@ function getCharName(id: string): string {
 
 async function handleSubmit() {
   if (!isFormValid.value) {
-    showToast('请填写地点名称并选择至少一个角色')
+    showToast('请填写标题并选择至少一个角色')
     return
   }
 

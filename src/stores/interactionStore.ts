@@ -183,6 +183,8 @@ export const useInteractionStore = defineStore('interaction', () => {
           userId: dbComment.user_id,
           content: dbComment.content,
           createdAt: new Date(dbComment.created_at).getTime(),
+          nickname: dbComment.profiles?.nickname ?? undefined,
+          avatarUrl: dbComment.profiles?.avatar_url ?? undefined,
         }
         comments.value.push(comment)
         return comment
@@ -266,7 +268,7 @@ export const useInteractionStore = defineStore('interaction', () => {
       const dbComments = await interactionsApi.getComments(markId)
       // 先移除该 markId 的旧缓存
       comments.value = comments.value.filter((c) => c.markId !== markId)
-      // 追加云端数据
+      // 追加云端数据（含 profiles 昵称/头像）
       for (const dc of dbComments) {
         comments.value.push({
           id: dc.id,
@@ -274,6 +276,8 @@ export const useInteractionStore = defineStore('interaction', () => {
           userId: dc.user_id,
           content: dc.content,
           createdAt: new Date(dc.created_at).getTime(),
+          nickname: dc.profiles?.nickname ?? undefined,
+          avatarUrl: dc.profiles?.avatar_url ?? undefined,
         })
       }
     } catch (e) {

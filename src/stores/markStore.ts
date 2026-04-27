@@ -145,6 +145,7 @@ export const useMarkStore = defineStore('mark', () => {
       createdAt: Date.now(),
       likeCount: 0,
       likedBy: [],
+      isOffline: true,
     }
 
     marks.value.push(newMark)
@@ -284,6 +285,20 @@ export const useMarkStore = defineStore('mark', () => {
     [...marks.value].sort((a, b) => b.createdAt - a.createdAt)
   )
 
+  /**
+   * 可见标记列表（供地图和列表展示）
+   * - 所有用户都能看到在线（非离线）打卡
+   * - 离线打卡仅在同设备（同localStorage）上可见
+   */
+  const visibleMarks = computed(() => {
+    const userStore = useUserStore()
+    const userId = userStore.getUserId()
+    return marks.value.filter((m) => {
+      if (!m.isOffline) return true   // 在线打卡：所有用户可见
+      return m.userId === userId       // 离线打卡：仅创建者本设备可见
+    })
+  })
+
   /** 标记总数 */
   const markCount = computed(() => marks.value.length)
 
@@ -297,10 +312,11 @@ export const useMarkStore = defineStore('mark', () => {
       const dbMarks = await marksApi.getPublicMarks()
       const fetched = dbMarks.map(dbMarkToMark)
 
-      // 合并：云端数据覆盖本地，新增的追加
-      const map = new Map(marks.value.map((m) => [m.id, m] as [string, Mark]))
+      // 合并时只保留：本地离线打卡 + 云端拉取的在线打卡
+      const localOffline = marks.value.filter((m) => m.isOffline)
+      const map = new Map(localOffline.map((m) => [m.id, m] as [string, Mark]))
       for (const m of fetched) {
-        map.set(m.id, m) // 云端数据覆盖本地
+        map.set(m.id, m) // 云端数据覆盖
       }
       marks.value = [...map.values()]
     } catch (e) {
@@ -338,6 +354,7 @@ export const useMarkStore = defineStore('mark', () => {
   return {
     marks,
     allMarks,
+    visibleMarks,
     markCount,
     loading,
     addMark,

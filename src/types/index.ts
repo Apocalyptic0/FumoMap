@@ -22,6 +22,7 @@ export interface Mark {
   tags: string[]
   visibility?: 'public' | 'private'  // P1: 可见性，默认 public
   createdAt: number        // 时间戳
+  isOffline?: boolean          // 离线打卡标识（本地创建、未上云）
   // --- 互动字段（P0 本地计数，P1 迁移到服务端聚合） ---
   likeCount: number        // 点赞数
   likedBy: string[]        // P0 点赞用户 ID 列表（P1 改为服务端关联表）
@@ -75,6 +76,8 @@ export interface Comment {
   userId: string
   content: string
   createdAt: number
+  nickname?: string       // 评论者昵称（云端评论从 profiles 关联获取）
+  avatarUrl?: string      // 评论者头像
 }
 
 /** 浏览记录 */

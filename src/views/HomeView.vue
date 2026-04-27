@@ -159,13 +159,13 @@ provide('mapCenter', mapCenter)
 /** 有打卡记录的角色列表（用于筛选面板） */
 const charactersWithMarks = computed(() => {
   const charIdsWithMarks = new Set<string>()
-  markStore.marks.forEach((m) => m.characterIds.forEach((id) => charIdsWithMarks.add(id)))
+  markStore.visibleMarks.forEach((m) => m.characterIds.forEach((id) => charIdsWithMarks.add(id)))
   return characterStore.characters.filter((c) => charIdsWithMarks.has(c.id))
 })
 
 /** 搜索结果：按关键词过滤 */
 const searchResults = computed(() => {
-  let results = markStore.marks
+  let results = markStore.visibleMarks
 
   // 关键词搜索
   const kw = searchKeyword.value.toLowerCase().trim()
@@ -191,11 +191,11 @@ const searchResults = computed(() => {
 /** 传给 MapView 的标记：受角色筛选影响 */
 const filteredMarks = computed(() => {
   if (filterCharIds.value.length > 0) {
-    return markStore.marks.filter((m) =>
+    return markStore.visibleMarks.filter((m) =>
       m.characterIds.some((id) => filterCharIds.value.includes(id))
     )
   }
-  return markStore.marks
+  return markStore.visibleMarks
 })
 
 function onSearchFocus() {
