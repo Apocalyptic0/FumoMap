@@ -33,6 +33,11 @@ const routes: RouteRecordRaw[] = [
     props: true,
   },
   {
+    path: '/explore',
+    name: 'Explore',
+    component: () => import('@/views/ExploreView.vue'),
+  },
+  {
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/ProfileView.vue'),

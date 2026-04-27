@@ -100,6 +100,12 @@
 
     <!-- 右下角按钮组 -->
     <div class="map-actions">
+      <button class="explore-btn" @click="goToExplore" title="发现">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+        </svg>
+      </button>
       <button class="locate-btn" @click="handleLocate" :disabled="geoLoading">
         <span v-if="geoLoading" class="locate-loading">⟳</span>
         <span v-else>📍</span>
@@ -254,6 +260,10 @@ function clearFilter() {
 
 function goToProfile() {
   router.push('/profile')
+}
+
+function goToExplore() {
+  router.push('/explore')
 }
 
 // --- 地图交互 ---
@@ -553,6 +563,31 @@ onUnmounted(() => {
 .locate-loading {
   animation: spin 1s linear infinite;
   display: inline-block;
+}
+
+// 发现页入口按钮
+.explore-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: $radius-full;
+  background: $bg-card;
+  border: none;
+  box-shadow: $shadow-md;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all $transition-fast;
+  color: $color-primary-dark;
+
+  &:active {
+    transform: scale(0.92);
+  }
+
+  &:hover {
+    color: $color-primary;
+    box-shadow: $shadow-lg;
+  }
 }
 
 @keyframes spin {
