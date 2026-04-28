@@ -100,10 +100,11 @@ async function handleLogin() {
       showToast({ message: '登录成功', type: 'success' })
       router.replace('/')
     } else {
-      showToast(result.message)
+      showToast(result.message || '登录失败')
     }
-  } catch {
-    showToast('网络连接失败，请检查网络')
+  } catch (e: any) {
+    console.error('[LoginView] 登录异常:', e)
+    showToast(e?.message || '网络连接失败，请检查网络')
   } finally {
     loading.value = false
   }

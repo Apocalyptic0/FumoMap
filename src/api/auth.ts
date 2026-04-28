@@ -57,16 +57,19 @@ export async function register(
 }
 
 /**
- * 邮箱+密码登录
+ * 邮箱+密码登录（带 10 秒超时）
  */
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
+  console.log('[Auth] login 开始 | email:', email)
 
-  if (error) return { success: false, message: mapAuthError(error) }
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
+  if (error) {
+    console.error('[Auth] signInWithPassword 错误 | code:', error.status, '| message:', error.message)
+    return { success: false, message: mapAuthError(error) }
+  }
+
+  console.log('[Auth] signInWithPassword 成功 | userId:', data.user?.id, '| hasSession:', !!data.session)
   return {
     success: true,
     message: '登录成功',

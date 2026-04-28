@@ -7,6 +7,10 @@ if (import.meta.env.DEV) {
   console.log('[Client] Supabase 初始化 | URL:', supabaseUrl, '| Key长度:', supabaseAnonKey?.length)
 }
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('[Client] Supabase 配置缺失！请检查 .env.local 文件是否存在且包含 VITE_SUPABASE_URL 和 VITE_SUPABASE_ANON_KEY')
+}
+
 /**
  * Supabase 客户端单例
  * 迁移腾讯云时：替换本文件为 axios 实例即可，其余 api/ 文件内部重写

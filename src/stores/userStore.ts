@@ -47,7 +47,7 @@ export const useUserStore = defineStore('user', () => {
     if (import.meta.env.DEV) console.log('[UserStore] init 开始 | isSupabaseReady:', isSupabaseReady())
     if (isSupabaseReady()) {
       // 始终注册认证状态监听器
-      authApi.onAuthStateChange(async (event, newSession) => {
+      authApi.onAuthStateChange((event, newSession) => {
         if (import.meta.env.DEV) console.log('[UserStore] onAuthStateChange | event:', event, '| hasSession:', !!newSession)
         if (event === 'SIGNED_OUT') {
           resetToLocal()
@@ -58,15 +58,17 @@ export const useUserStore = defineStore('user', () => {
             authReady.value = true
           }
         } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && newSession?.user) {
-          await loadCloudProfile(newSession.user.id, newSession.user.email ?? '')
+          // 注意：onAuthStateChange 回调里不能用 await，否则会阻塞 supabase 内部 promise
+          loadCloudProfile(newSession.user.id, newSession.user.email ?? '').catch((e) => {
+            console.warn('[UserStore] onAuthStateChange loadCloudProfile 失败:', e)
+          })
         }
       })
 
       try {
         const session = await authApi.getSession()
-        console.log('[UserStore] getSession 结果 | hasSession:', !!session, '| userId:', session?.user?.id)
+        if (import.meta.env.DEV) console.log('[UserStore] getSession 结果 | hasSession:', !!session, '| userId:', session?.user?.id)
         if (session?.user) {
-          await waitForSession()
           await loadCloudProfile(session.user.id, session.user.email ?? '')
           authReady.value = true
           if (import.meta.env.DEV) console.log('[UserStore] session 恢复成功 | isCloudUser:', isCloudUser.value)
@@ -150,8 +152,11 @@ export const useUserStore = defineStore('user', () => {
   async function login(email: string, password: string): Promise<{ success: boolean; message: string }> {
     authLoading.value = true
     try {
+      if (!isSupabaseReady()) {
+        return { success: false, message: 'Supabase 配置缺失，无法登录' }
+      }
       const result = await authApi.login(email, password)
-      if (import.meta.env.DEV) console.log('[UserStore] login | success:', result.success, '| userId:', result.user?.id)
+      console.log('[UserStore] login | success:', result.success, '| message:', result.message, '| userId:', result.user?.id)
       if (result.success && result.user) {
         // signInWithPassword 已返回 session，直接加载 profile
         // 仅在未返回 session 时才 waitForSession
@@ -163,6 +168,9 @@ export const useUserStore = defineStore('user', () => {
         if (import.meta.env.DEV) console.log('[UserStore] login 完成 | isCloudUser:', isCloudUser.value, '| userId:', currentUser.value.id)
       }
       return result
+    } catch (e) {
+      console.error('[UserStore] login 异常:', e)
+      return { success: false, message: '登录请求失败，请检查网络或配置' }
     } finally {
       authLoading.value = false
     }
