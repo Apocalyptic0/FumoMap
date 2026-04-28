@@ -34,10 +34,10 @@
     <div class="sort-tabs">
       <button
         class="sort-tab"
-        :class="{ active: sortMode === 'latest' }"
-        @click="sortMode = 'latest'"
+        :class="{ active: sortMode === 'nearby' }"
+        @click="sortMode = 'nearby'"
       >
-        最新
+        附近
       </button>
       <button
         class="sort-tab"
@@ -45,6 +45,20 @@
         @click="sortMode = 'hot'"
       >
         热门
+      </button>
+    </div>
+
+    <!-- 附近页随机探索按钮 -->
+    <div v-if="sortMode === 'nearby'" class="nearby-actions">
+      <div class="nearby-center-info">
+        <span v-if="nearbyCenter" class="nearby-label">
+          📍 {{ nearbyCenterLabel }}
+        </span>
+      </div>
+      <button class="random-explore-btn" @click="randomExplore" :disabled="randomLoading">
+        <span v-if="randomLoading" class="random-loading">⟳</span>
+        <span v-else>🎲</span>
+        随机探索
       </button>
     </div>
 
@@ -107,20 +121,36 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Mark } from '@/types'
+import type { Mark, GeoPosition } from '@/types'
 import MarkCard from '@/components/MarkCard.vue'
 import { useMarkStore } from '@/stores/markStore'
 import { useUserStore } from '@/stores/userStore'
 import { useMarkFilter } from '@/composables/useMarkFilter'
+import { useGeolocation } from '@/composables/useGeolocation'
+import { haversineDistance } from '@/utils/geo'
 
 const router = useRouter()
 const markStore = useMarkStore()
 const userStore = useUserStore()
+const { position, isDefault: isGeoDefault, locate } = useGeolocation()
 
-const sortMode = ref<'latest' | 'hot'>('latest')
+const sortMode = ref<'nearby' | 'hot'>('nearby')
 const searchKeyword = ref('')
 const debouncedKeyword = ref('')
 const selectedCharId = ref('')
+const randomLoading = ref(false)
+
+/** 附近页的中心坐标（可被随机探索切换） */
+const nearbyCenter = ref<GeoPosition | null>(null)
+
+/** 附近页搜索半径（千米） */
+const NEARBY_RADIUS_KM = 50
+
+/** 热门页最大条数 */
+const HOT_LIMIT = 50
+
+/** 附近页最大条数 */
+const NEARBY_LIMIT = 20
 
 // 防抖：搜索输入 300ms 后才更新过滤
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -134,6 +164,15 @@ watch(searchKeyword, (val) => {
 const { charactersWithMarks, filterByKeyword } = useMarkFilter(debouncedKeyword)
 
 const loading = computed(() => markStore.loading)
+
+/** 附近中心点标签 */
+const nearbyCenterLabel = computed(() => {
+  if (!nearbyCenter.value) return ''
+  if (!isGeoDefault.value && nearbyCenter.value === position.value) {
+    return '你的位置附近'
+  }
+  return '随机位置附近'
+})
 
 /** 搜索 + 角色筛选 + 排序后的列表 */
 const filteredMarks = computed(() => {
@@ -149,10 +188,42 @@ const filteredMarks = computed(() => {
 
   // 排序
   if (sortMode.value === 'hot') {
-    return [...results].sort((a, b) => b.likeCount - a.likeCount || b.createdAt - a.createdAt)
+    return [...results]
+      .sort((a, b) => b.likeCount - a.likeCount || b.createdAt - a.createdAt)
+      .slice(0, HOT_LIMIT)
   }
-  return [...results].sort((a, b) => b.createdAt - a.createdAt)
+
+  // 附近模式
+  const center = nearbyCenter.value
+  if (!center) return []
+
+  return [...results]
+    .map((m) => ({
+      mark: m,
+      distance: haversineDistance(center, { lat: m.lat, lng: m.lng }),
+    }))
+    .filter((item) => item.distance <= NEARBY_RADIUS_KM)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, NEARBY_LIMIT)
+    .map((item) => item.mark)
 })
+
+/**
+ * 随机探索：从所有打卡中随机选一个坐标作为附近中心
+ */
+function randomExplore() {
+  const marks = markStore.visibleMarks
+  if (marks.length === 0) return
+
+  randomLoading.value = true
+  const randomMark = marks[Math.floor(Math.random() * marks.length)]
+  nearbyCenter.value = { lat: randomMark.lat, lng: randomMark.lng }
+
+  // 短暂加载动画
+  setTimeout(() => {
+    randomLoading.value = false
+  }, 300)
+}
 
 function goBack() {
   router.back()
@@ -162,13 +233,23 @@ function goToDetail(mark: Mark) {
   router.push({ name: 'MarkDetail', params: { id: mark.id } })
 }
 
-onMounted(() => {
+onMounted(async () => {
   // 如果 marks 为空（直接访问 /explore），主动拉取
   if (markStore.visibleMarks.length === 0) {
     markStore.fetchPublicMarks()
     if (userStore.isCloudUser) {
       markStore.fetchMyMarks()
     }
+  }
+
+  // 初始化附近中心坐标
+  await locate()
+  if (!isGeoDefault.value) {
+    // 有真实定位，使用用户位置
+    nearbyCenter.value = { ...position.value }
+  } else {
+    // 无定位，随机选一个打卡坐标
+    randomExplore()
   }
 })
 </script>
@@ -329,6 +410,63 @@ onMounted(() => {
 
     &:active {
       transform: scale(0.97);
+    }
+  }
+}
+
+// --- 附近页操作区 ---
+.nearby-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 $spacing-lg $spacing-md;
+  gap: $spacing-sm;
+
+  .nearby-center-info {
+    flex: 1;
+    min-width: 0;
+
+    .nearby-label {
+      font-size: $font-size-xs;
+      color: $text-tertiary;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .random-explore-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 14px;
+    border-radius: $radius-full;
+    border: 1.5px solid $color-primary;
+    background: $color-primary-light;
+    color: $color-primary-dark;
+    font-size: $font-size-xs;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all $transition-fast;
+    flex-shrink: 0;
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    &:hover {
+      box-shadow: $shadow-sm;
+    }
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .random-loading {
+      animation: spin 1s linear infinite;
+      display: inline-block;
     }
   }
 }

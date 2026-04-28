@@ -153,9 +153,12 @@ export const useUserStore = defineStore('user', () => {
       const result = await authApi.login(email, password)
       if (import.meta.env.DEV) console.log('[UserStore] login | success:', result.success, '| userId:', result.user?.id)
       if (result.success && result.user) {
-        // 等待 Supabase session 完全就绪，确保后续请求携带 token
-        const sessionOk = await waitForSession()
-        if (import.meta.env.DEV) console.log('[UserStore] login waitForSession:', sessionOk)
+        // signInWithPassword 已返回 session，直接加载 profile
+        // 仅在未返回 session 时才 waitForSession
+        if (!result.session) {
+          const sessionOk = await waitForSession()
+          if (import.meta.env.DEV) console.log('[UserStore] login waitForSession:', sessionOk)
+        }
         await loadCloudProfile(result.user.id, email)
         if (import.meta.env.DEV) console.log('[UserStore] login 完成 | isCloudUser:', isCloudUser.value, '| userId:', currentUser.value.id)
       }

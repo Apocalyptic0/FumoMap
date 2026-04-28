@@ -337,6 +337,27 @@ export function useMap(options: UseMapOptions) {
     destroyMap()
   })
 
+  /**
+   * 获取当前视口边界
+   */
+  function getBounds(): { southWest: GeoPosition; northEast: GeoPosition } | null {
+    if (!map.value) return null
+    const bounds = map.value.getBounds()
+    const sw = bounds.getSouthWest()
+    const ne = bounds.getNorthEast()
+    return {
+      southWest: { lat: sw.lat, lng: sw.lng },
+      northEast: { lat: ne.lat, lng: ne.lng },
+    }
+  }
+
+  /**
+   * 获取当前缩放级别
+   */
+  function getZoom(): number {
+    return map.value?.getZoom() ?? 0
+  }
+
   return {
     map,
     flyTo,
@@ -350,5 +371,7 @@ export function useMap(options: UseMapOptions) {
     invalidateSize,
     initMap,
     destroyMap,
+    getBounds,
+    getZoom,
   }
 }

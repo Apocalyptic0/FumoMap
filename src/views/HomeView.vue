@@ -9,6 +9,7 @@
       :show-location-marker="true"
       @marker-click="onMarkerClick"
       @map-move="onMapMove"
+      @zoom-change="onZoomChange"
     />
 
     <!-- 顶部搜索栏（z-index 高于搜索面板） -->
@@ -95,6 +96,13 @@
       @select="onSearchResultSelect"
     />
 
+    <!-- 缩放过小提示 -->
+    <transition name="fade">
+      <div v-if="showZoomHint" class="zoom-hint glass-effect" @click="showZoomHint = false">
+        缩小地图后标记将不显示，请放大查看
+      </div>
+    </transition>
+
     <!-- 标记信息弹窗 -->
     <MarkerPopup :mark="selectedMark" />
 
@@ -147,6 +155,7 @@ const { position, loading: geoLoading, error: geoError, locate } = useGeolocatio
 const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 const searchInputRef = ref<HTMLInputElement | null>(null)
 const selectedMark = ref<Mark | null>(null)
+const showZoomHint = ref(false)
 
 // 搜索与筛选状态
 const searchKeyword = ref('')
@@ -253,6 +262,10 @@ function onMapMove(center: GeoPosition) {
   mapCenter.value = center
 }
 
+function onZoomChange(zoom: number) {
+  showZoomHint.value = zoom < 12
+}
+
 async function handleLocate() {
   const pos = await locate()
   displayCenter.value = pos
@@ -265,6 +278,12 @@ watch(position, (newPos) => {
 })
 
 onMounted(async () => {
+  // 先拉取数据，不阻塞在定位上
+  markStore.fetchPublicMarks()
+  if (userStore.isCloudUser) {
+    markStore.fetchMyMarks()
+  }
+
   const queryLat = Number(route.query.lat)
   const queryLng = Number(route.query.lng)
   if (queryLat && queryLng) {
@@ -273,15 +292,10 @@ onMounted(async () => {
     // 静默获取当前位置用于蓝点（不影响地图中心）
     locate()
   } else {
-    const pos = await locate()
-    displayCenter.value = pos
-  }
-
-  // 拉取云端公开打卡（所有用户均可）
-  markStore.fetchPublicMarks()
-  // 云端用户额外拉取自己的打卡
-  if (userStore.isCloudUser) {
-    markStore.fetchMyMarks()
+    // 先用默认中心渲染地图，定位成功后再飞过去
+    locate().then((pos) => {
+      displayCenter.value = pos
+    })
   }
 
   document.addEventListener('keydown', onKeydown)
@@ -573,6 +587,20 @@ onUnmounted(() => {
 }
 
 .geo-toast {
+  position: absolute;
+  top: 80px;
+  left: $spacing-lg;
+  right: $spacing-lg;
+  z-index: 1001;
+  text-align: center;
+  padding: $spacing-sm $spacing-md;
+  border-radius: $radius-md;
+  font-size: $font-size-sm;
+  color: $text-secondary;
+  cursor: pointer;
+}
+
+.zoom-hint {
   position: absolute;
   top: 80px;
   left: $spacing-lg;
